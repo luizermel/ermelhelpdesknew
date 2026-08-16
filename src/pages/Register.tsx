@@ -36,6 +36,8 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { toast } from 'sonner'
 
+import { Headset, ArrowRight, ShieldCheck } from 'lucide-react'
+
 export default function Register() {
   const { signUp } = useAuth()
   const navigate = useNavigate()
@@ -145,46 +147,75 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-slate-50 via-indigo-50/40 to-slate-100 p-4">
-      <Card className="w-full max-w-[480px] shadow-xl border-slate-200/80 bg-white rounded-2xl animate-fade-in-up my-6">
-        <CardHeader className="text-center pb-5">
-          <div className="mx-auto h-12 w-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-indigo-200 mb-2">
-            <LifeBuoy className="h-6 w-6" />
-          </div>
-          <CardTitle className="text-2xl font-bold text-slate-900 tracking-tight">
-            Criar nova conta
-          </CardTitle>
-          <CardDescription className="text-slate-500 text-sm">
-            Cadastre-se para abrir e acompanhar chamados de TI
-          </CardDescription>
-        </CardHeader>
+    <div className="min-h-screen w-full bg-gradient-to-b from-[#e8f3fa] via-[#edf6fc] to-[#f4f9fd] flex flex-col justify-between p-6 sm:p-10 font-sans selection:bg-[#0062a8]/20">
+      {/* Header Top Left */}
+      <header className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl border-2 border-[#005a9c] flex items-center justify-center text-[#005a9c] bg-white/60 shadow-sm">
+          <Headset className="w-6 h-6 stroke-[2]" />
+        </div>
+        <span className="text-xl font-bold tracking-tight text-[#0f172a]">Help Desk TI</span>
+      </header>
 
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Main Content Area */}
+      <main className="w-full max-w-[460px] mx-auto my-auto py-8">
+        {/* Title / Description area */}
+        <div className="mb-6 space-y-1.5">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#5b7a9c]">
+            PORTAL CORPORATIVO
+          </p>
+          <h1 className="text-3xl sm:text-[34px] font-extrabold text-[#0a192f] tracking-tight leading-none">
+            Solicitar acesso
+          </h1>
+          <p className="text-[13.5px] text-[#556980] leading-snug pt-1">
+            Cadastre seus dados para abrir chamados e acompanhar solicitações na TI.
+          </p>
+        </div>
+
+        {/* Card */}
+        <Card className="shadow-lg shadow-sky-900/5 border border-slate-200/60 bg-white rounded-2xl p-6 sm:p-7 space-y-5">
+          {/* Tab switcher */}
+          <div className="bg-[#f0f4f8] p-1 rounded-xl flex items-center">
+            <Link
+              to="/"
+              className="flex-1 py-2 text-xs font-semibold text-[#556980] hover:text-[#0a192f] transition-colors text-center"
+            >
+              Entrar
+            </Link>
+            <button
+              type="button"
+              className="flex-1 py-2 text-xs font-semibold text-[#0a192f] bg-white rounded-lg shadow-sm border border-slate-200/50 transition-all text-center"
+            >
+              Solicitar acesso
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4 pt-1">
             {errorMessage && (
-              <Alert variant="destructive" className="bg-red-50 border-red-200 text-red-700 py-2.5">
+              <Alert variant="destructive" className="bg-red-50 border-red-200 text-red-700 py-2">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription className="text-xs">{errorMessage}</AlertDescription>
               </Alert>
             )}
 
-            {/* Name Field */}
+            {/* Full Name Field */}
             <div className="space-y-1.5">
-              <Label htmlFor="name" className="text-xs font-semibold text-slate-700">
+              <Label htmlFor="name" className="text-xs font-semibold text-[#1e293b]">
                 Nome completo
               </Label>
               <div className="relative">
-                <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#64748b] pointer-events-none" />
                 <Input
                   id="name"
                   type="text"
-                  placeholder="Ex: Carlos da Silva"
+                  placeholder="Carlos Silva"
                   value={name}
                   onChange={(e) => {
                     setName(e.target.value)
                     if (fieldErrors.name) setFieldErrors({ ...fieldErrors, name: '' })
                   }}
-                  className={`pl-9.5 ${fieldErrors.name ? 'border-red-500 focus-visible:ring-red-400' : ''}`}
+                  className={`pl-10 h-11 border-slate-200 text-slate-800 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-[#0062a8] rounded-xl ${
+                    fieldErrors.name ? 'border-red-500 focus-visible:ring-red-400' : ''
+                  }`}
                   disabled={loading}
                   autoComplete="name"
                 />
@@ -196,21 +227,23 @@ export default function Register() {
 
             {/* Email Field */}
             <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-xs font-semibold text-slate-700">
+              <Label htmlFor="email" className="text-xs font-semibold text-[#1e293b]">
                 E-mail corporativo
               </Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#64748b] pointer-events-none" />
                 <Input
                   id="email"
                   type="email"
-                  placeholder="seu.nome@empresa.com"
+                  placeholder="carlos.silva@empresa.com"
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value)
                     if (fieldErrors.email) setFieldErrors({ ...fieldErrors, email: '' })
                   }}
-                  className={`pl-9.5 ${fieldErrors.email ? 'border-red-500 focus-visible:ring-red-400' : ''}`}
+                  className={`pl-10 h-11 border-slate-200 text-slate-800 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-[#0062a8] rounded-xl ${
+                    fieldErrors.email ? 'border-red-500 focus-visible:ring-red-400' : ''
+                  }`}
                   disabled={loading}
                   autoComplete="email"
                 />
@@ -220,10 +253,10 @@ export default function Register() {
               )}
             </div>
 
-            {/* Sector Dropdown (10 sectors) */}
+            {/* Sector Dropdown */}
             <div className="space-y-1.5">
-              <Label htmlFor="sector" className="text-xs font-semibold text-slate-700">
-                Setor de trabalho (10 setores)
+              <Label htmlFor="sector" className="text-xs font-semibold text-[#1e293b]">
+                Setor de trabalho
               </Label>
               <div className="relative">
                 <Select
@@ -236,14 +269,16 @@ export default function Register() {
                 >
                   <SelectTrigger
                     id="sector"
-                    className={`w-full pl-9.5 ${fieldErrors.sector ? 'border-red-500 focus:ring-red-400' : ''}`}
+                    className={`w-full pl-10 h-11 border-slate-200 text-slate-800 focus:ring-1 focus:ring-[#0062a8] rounded-xl ${
+                      fieldErrors.sector ? 'border-red-500 focus:ring-red-400' : ''
+                    }`}
                   >
-                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                    <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#64748b] pointer-events-none" />
                     <SelectValue
                       placeholder={loadingSectors ? 'Carregando setores...' : 'Selecione seu setor'}
                     />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="rounded-xl">
                     {sectors.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
                         {s.name}
@@ -259,11 +294,11 @@ export default function Register() {
 
             {/* Password Field */}
             <div className="space-y-1.5">
-              <Label htmlFor="password" className="text-xs font-semibold text-slate-700">
-                Senha de acesso
+              <Label htmlFor="password" className="text-xs font-semibold text-[#1e293b]">
+                Senha
               </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#64748b] pointer-events-none" />
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
@@ -273,35 +308,33 @@ export default function Register() {
                     setPassword(e.target.value)
                     if (fieldErrors.password) setFieldErrors({ ...fieldErrors, password: '' })
                   }}
-                  className={`pl-9.5 pr-10 ${fieldErrors.password ? 'border-red-500 focus-visible:ring-red-400' : ''}`}
+                  className={`pl-10 pr-10 h-11 border-slate-200 text-slate-800 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-[#0062a8] rounded-xl ${
+                    fieldErrors.password ? 'border-red-500 focus-visible:ring-red-400' : ''
+                  }`}
                   disabled={loading}
                   autoComplete="new-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#64748b] hover:text-slate-800 focus:outline-none"
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              {fieldErrors.password ? (
+              {fieldErrors.password && (
                 <p className="text-[11px] text-red-500 font-medium">{fieldErrors.password}</p>
-              ) : (
-                <p className="text-[11px] text-slate-400">
-                  Dica: use pelo menos 8 caracteres com letras e números.
-                </p>
               )}
             </div>
 
             {/* Confirm Password Field */}
             <div className="space-y-1.5">
-              <Label htmlFor="passwordConfirm" className="text-xs font-semibold text-slate-700">
+              <Label htmlFor="passwordConfirm" className="text-xs font-semibold text-[#1e293b]">
                 Confirmar senha
               </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#64748b] pointer-events-none" />
                 <Input
                   id="passwordConfirm"
                   type={showPasswordConfirm ? 'text' : 'password'}
@@ -312,14 +345,16 @@ export default function Register() {
                     if (fieldErrors.passwordConfirm)
                       setFieldErrors({ ...fieldErrors, passwordConfirm: '' })
                   }}
-                  className={`pl-9.5 pr-10 ${fieldErrors.passwordConfirm ? 'border-red-500 focus-visible:ring-red-400' : ''}`}
+                  className={`pl-10 pr-10 h-11 border-slate-200 text-slate-800 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-[#0062a8] rounded-xl ${
+                    fieldErrors.passwordConfirm ? 'border-red-500 focus-visible:ring-red-400' : ''
+                  }`}
                   disabled={loading}
                   autoComplete="new-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPasswordConfirm(!showPasswordConfirm)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#64748b] hover:text-slate-800 focus:outline-none"
                   tabIndex={-1}
                 >
                   {showPasswordConfirm ? (
@@ -336,35 +371,35 @@ export default function Register() {
               )}
             </div>
 
+            {/* Submit Button */}
             <Button
               type="submit"
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 shadow-sm transition-all duration-150 active:scale-[0.99] mt-2"
+              className="w-full h-11 bg-[#0062a8] hover:bg-[#00508a] active:bg-[#004375] text-white font-semibold rounded-xl text-sm flex items-center justify-center gap-2 shadow-sm transition-colors mt-3"
               disabled={loading}
             >
               {loading ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Criando conta...
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Solicitando acesso...
                 </>
               ) : (
-                'Criar conta'
+                <>
+                  <span>Solicitar acesso</span>
+                  <ArrowRight className="h-4 w-4 stroke-[2.5]" />
+                </>
               )}
             </Button>
           </form>
-        </CardContent>
+        </Card>
+      </main>
 
-        <CardFooter className="flex justify-center border-t border-slate-100 pt-4">
-          <p className="text-xs text-slate-500">
-            Já possui uma conta?{' '}
-            <Link
-              to="/"
-              className="text-indigo-600 hover:text-indigo-700 font-semibold hover:underline"
-            >
-              Fazer login
-            </Link>
-          </p>
-        </CardFooter>
-      </Card>
+      {/* Footer Below Card */}
+      <footer className="text-center pb-2">
+        <p className="inline-flex items-center gap-1.5 text-xs text-[#64748b] font-medium">
+          <ShieldCheck className="h-4 w-4 text-[#64748b]" />
+          Acesso protegido e monitorado pela equipe de TI
+        </p>
+      </footer>
     </div>
   )
 }

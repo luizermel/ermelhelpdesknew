@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import {
-  Database,
   Plus,
   Pencil,
   Trash2,
@@ -56,15 +55,15 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { toast } from 'sonner'
 
-type TabKey = 'setores' | 'categorias' | 'prioridades' | 'atendentes' | 'empresas' | 'contatos'
+type TabKey = 'empresas' | 'contatos' | 'setores' | 'categorias' | 'prioridades' | 'atendentes'
 
 const TABS: { value: TabKey; label: string; icon: React.ElementType }[] = [
+  { value: 'empresas', label: 'Empresas', icon: Building2 },
+  { value: 'contatos', label: 'Contatos', icon: Phone },
   { value: 'setores', label: 'Setores', icon: Building2 },
   { value: 'categorias', label: 'Categorias', icon: Tag },
   { value: 'prioridades', label: 'Prioridades', icon: AlertTriangle },
-  { value: 'atendentes', label: 'Atendentes', icon: UsersIcon },
-  { value: 'empresas', label: 'Empresas', icon: Building2 },
-  { value: 'contatos', label: 'Contatos', icon: Phone },
+  { value: 'atendentes', label: 'Usuários', icon: UsersIcon },
 ]
 
 function getInitials(name?: string) {
@@ -75,23 +74,14 @@ function getInitials(name?: string) {
 }
 
 export default function Records() {
-  const [activeTab, setActiveTab] = useState<TabKey>('setores')
+  const [activeTab, setActiveTab] = useState<TabKey>('empresas')
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="pb-2 border-b border-slate-200/80">
-        <div className="flex items-center gap-2">
-          <div className="h-7 w-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center">
-            <Database className="h-4 w-4" />
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            Cadastros
-          </h1>
-        </div>
-        <p className="text-sm text-slate-500 mt-1">
-          Gerencie setores, categorias, prioridades, atendentes, empresas e contatos do sistema
-        </p>
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Cadastros</h1>
+        <p className="text-sm text-slate-500 mt-1">Estrutura base do help desk multiempresa.</p>
       </div>
 
       <Tabs
@@ -115,6 +105,12 @@ export default function Records() {
           })}
         </TabsList>
 
+        <TabsContent value="empresas">
+          <CompaniesTab />
+        </TabsContent>
+        <TabsContent value="contatos">
+          <ContactsTab />
+        </TabsContent>
         <TabsContent value="setores">
           <SectorsTab />
         </TabsContent>
@@ -126,12 +122,6 @@ export default function Records() {
         </TabsContent>
         <TabsContent value="atendentes">
           <AttendantsTab />
-        </TabsContent>
-        <TabsContent value="empresas">
-          <CompaniesTab />
-        </TabsContent>
-        <TabsContent value="contatos">
-          <ContactsTab />
         </TabsContent>
       </Tabs>
     </div>
@@ -715,7 +705,7 @@ function AttendantsTab() {
   }
 
   return (
-    <CrudCard title="Atendentes / Usuários" count={users.length} onAdd={() => {}}>
+    <CrudCard title="Usuários" count={users.length} onAdd={() => {}}>
       <div className="overflow-x-auto">
         <Table>
           <TableHeader className="bg-slate-50/70">

@@ -29,6 +29,9 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { toast } from 'sonner'
+import AudioRecorder from '@/components/AudioRecorder'
+import { isAudioPath, validateAttachment } from '@/lib/tickets'
+import { FileAudio } from 'lucide-react'
 
 const CATEGORIES: TicketCategory[] = [
   'Hardware',
@@ -51,8 +54,22 @@ const PRIORITIES: { value: TicketPriority; label: string; desc: string }[] = [
   { value: 'Alta', label: 'Alta / Urgente', desc: 'Paralisação total das atividades ou setor' },
 ]
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+const ALLOWED_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'audio/webm',
+  'audio/ogg',
+  'audio/wav',
+  'audio/x-wav',
+  'audio/mpeg',
+  'audio/mp3',
+  'audio/mp4',
+  'audio/m4a',
+  'audio/x-m4a',
+]
 
 interface FilePreview {
   file: File
@@ -104,16 +121,17 @@ export default function NewTicket() {
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
-
-      if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-        setFileError(
-          `O arquivo "${file.name}" não é uma imagem válida (apenas JPG, PNG, WEBP, GIF).`,
-        )
+      const v = validateAttachment(file)
+      if (!v.valid) {
+        if (v.error) setFileError(v.error)
         continue
       }
-
+      if (!ALLOWED_MIME_TYPES.includes(file.type) && !isAudioPath(file.name)) {
+        setFileError(`O arquivo "${file.name}" não é um anexo válido (imagens ou áudio).`)
+        continue
+      }
       if (file.size > MAX_FILE_SIZE) {
-        setFileError(`O arquivo "${file.name}" excede o tamanho máximo permitido de 5MB.`)
+        setFileError(`O arquivo "${file.name}" excede o tamanho máximo permitido de 10MB.`)
         continue
       }
 
@@ -386,7 +404,7 @@ export default function NewTicket() {
                 <Label className="text-xs font-semibold text-slate-700">
                   Anexar imagens ou capturas de tela (opcional)
                 </Label>
-                <span className="text-[11px] text-slate-400">Até 10 imagens (máx 5MB cada)</span>
+                <span className="text-[11px] text-slate-400">Até 10 anexos (máx 10MB cada)</span>
               </div>
 
               {/* Drag and Drop Zone */}
@@ -403,7 +421,7 @@ export default function NewTicket() {
                   ref={fileInputRef}
                   type="file"
                   multiple
-                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  accept="image/jpeg,image/png,image/webp,image/gif,audio/webm,audio/ogg,audio/wav,audio/mpeg,audio/mp3,audio/mp4,audio/m4a"
                   className="hidden"
                   onChange={(e) => handleFileSelect(e.target.files)}
                 />
@@ -413,7 +431,9 @@ export default function NewTicket() {
                 <p className="text-xs font-medium text-slate-700">
                   Clique para selecionar imagens ou arraste para cá
                 </p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Formatos: JPG, PNG, WEBP, GIF</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Imagens: JPG, PNG, WEBP, GIF. Para áudio, use o gravador abaixo.
+                </p>
               </div>
 
               {fileError && (
@@ -426,31 +446,71 @@ export default function NewTicket() {
               {/* Attachments Preview Grid */}
               {attachments.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-                  {attachments.map((att, idx) => (
-                    <div
-                      key={idx}
-                      className="relative group rounded-lg overflow-hidden border border-slate-200 bg-slate-100 aspect-video flex items-center justify-center"
-                    >
-                      <img
-                        src={att.previewUrl}
-                        alt={`Preview ${idx + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeAttachment(idx)}
-                        className="absolute top-1 right-1 bg-red-600/90 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
-                        title="Remover anexo"
+                  {attachments.map((att, idx) => {
+                    const isAudio = isAudioPath(att.file.name) || att.file.type.startsWith('audio/')
+                    return (
+                      <div
+                        key={idx}
+                        className="relative group rounded-lg overflow-hidden border border-slate-200 bg-slate-100 aspect-video flex items-center justify-center"
                       >
-                        <X className="h-3 w-3" />
-                      </button>
-                      <div className="absolute bottom-0 inset-x-0 bg-slate-900/60 text-[10px] text-white px-1.5 py-0.5 truncate">
-                        {att.file.name}
+                        {isAudio ? (
+                          <div className="w-full h-full flex flex-col items-center justify-center gap-1 px-2">
+                            <FileAudio className="h-6 w-6 text-indigo-600" />
+                            <span className="text-[10px] text-slate-500 font-medium truncate w-full text-center">
+                              {att.file.name}
+                            </span>
+                            <audio
+                              src={att.previewUrl}
+                              controls
+                              className="w-full h-6"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                        ) : (
+                          <img
+                            src={att.previewUrl}
+                            alt={`Preview ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeAttachment(idx)}
+                          className="absolute top-1 right-1 bg-red-600/90 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
+                          title="Remover anexo"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                        {!isAudio && (
+                          <div className="absolute bottom-0 inset-x-0 bg-slate-900/60 text-[10px] text-white px-1.5 py-0.5 truncate">
+                            {att.file.name}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
+
+              {/* Audio Recorder */}
+              <div className="pt-2">
+                <Label className="text-xs font-semibold text-slate-700 mb-1.5 block">
+                  Gravar áudio (opcional)
+                </Label>
+                <AudioRecorder
+                  disabled={loading}
+                  onComplete={(file) => {
+                    const v = validateAttachment(file)
+                    if (!v.valid) {
+                      if (v.error) setFileError(v.error)
+                      return
+                    }
+                    const previewUrl = URL.createObjectURL(file)
+                    setAttachments((prev) => [...prev, { file, previewUrl }].slice(0, 10))
+                    toast.success('Áudio anexado.')
+                  }}
+                />
+              </div>
             </div>
 
             {/* Submit Button */}

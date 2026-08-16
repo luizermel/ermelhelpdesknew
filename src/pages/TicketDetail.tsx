@@ -19,6 +19,7 @@ import {
   X,
   MessageSquare,
   ShieldCheck,
+  FileAudio,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { ticketsService, messagesService, getFileUrl } from '@/services/api'
@@ -39,6 +40,9 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import AudioRecorder from '@/components/AudioRecorder'
+import { isAudioPath } from '@/lib/tickets'
+import pb from '@/lib/pocketbase/client'
 
 export default function TicketDetail() {
   const { id } = useParams<{ id: string }>()
@@ -52,6 +56,9 @@ export default function TicketDetail() {
   // Comment Form
   const [commentText, setCommentText] = useState('')
   const [sendingComment, setSendingComment] = useState(false)
+
+  // Audio reply
+  const [sendingAudio, setSendingAudio] = useState(false)
 
   // Admin Actions
   const [statusUpdating, setStatusUpdating] = useState(false)
@@ -111,6 +118,29 @@ export default function TicketDetail() {
       toast.error('Erro ao enviar mensagem.')
     } finally {
       setSendingComment(false)
+    }
+  }
+
+  // Handle audio reply — uploads file to ticket_messages.attachments
+  const handleSendAudio = async (file: File) => {
+    if (!id || !user) return
+    setSendingAudio(true)
+    try {
+      const formData = new FormData()
+      formData.append('ticket', id)
+      formData.append('author', user.id)
+      formData.append('content', `Áudio: ${file.name}`)
+      formData.append('event_type', 'comentario')
+      formData.append('attachments', file)
+
+      await pb.collection('ticket_messages').create(formData)
+      toast.success('Áudio enviado na timeline!')
+      await fetchTicketData()
+    } catch (err) {
+      console.error(err)
+      toast.error('Erro ao enviar áudio.')
+    } finally {
+      setSendingAudio(false)
     }
   }
 
@@ -294,6 +324,26 @@ export default function TicketDetail() {
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {ticket.attachments.map((file, idx) => {
                       const fileUrl = getFileUrl(ticket, file)
+                      const audio = isAudioPath(file)
+                      if (audio) {
+                        return (
+                          <div
+                            key={idx}
+                            className="group relative aspect-video rounded-xl overflow-hidden border border-slate-200 bg-slate-50 p-2 flex flex-col items-center justify-center gap-1.5 shadow-2xs"
+                          >
+                            <FileAudio className="h-6 w-6 text-indigo-600" />
+                            <span className="text-[10px] text-slate-500 font-medium truncate w-full text-center">
+                              {file}
+                            </span>
+                            <audio
+                              src={fileUrl}
+                              controls
+                              className="w-full h-7"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                        )
+                      }
                       return (
                         <div
                           key={idx}
@@ -410,39 +460,60 @@ export default function TicketDetail() {
                   <p>Este chamado já foi finalizado e não aceita novos comentários.</p>
                 </div>
               ) : (
-                <form onSubmit={handleSendComment} className="space-y-3">
-                  <Textarea
-                    placeholder="Escreva uma mensagem de atualização ou resposta sobre o chamado..."
-                    rows={3}
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    disabled={sendingComment}
-                    className="text-xs resize-none"
-                  />
-                  <div className="flex justify-between items-center">
-                    <span className="text-[11px] text-slate-400">
-                      As atualizações são enviadas em tempo real.
-                    </span>
-                    <Button
-                      type="submit"
-                      size="sm"
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium px-4 shadow-sm"
-                      disabled={sendingComment || !commentText.trim()}
-                    >
-                      {sendingComment ? (
-                        <>
-                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                          Enviando...
-                        </>
-                      ) : (
-                        <>
-                          <Send className="mr-1.5 h-3.5 w-3.5" />
-                          Enviar Mensagem
-                        </>
-                      )}
-                    </Button>
+                <div className="space-y-3">
+                  <form onSubmit={handleSendComment} className="space-y-3">
+                    <Textarea
+                      placeholder="Escreva uma mensagem de atualização ou resposta sobre o chamado..."
+                      rows={3}
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      disabled={sendingComment}
+                      className="text-xs resize-none"
+                    />
+                    <div className="flex justify-between items-center">
+                      <span className="text-[11px] text-slate-400">
+                        As atualizações são enviadas em tempo real.
+                      </span>
+                      <Button
+                        type="submit"
+                        size="sm"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium px-4 shadow-sm"
+                        disabled={sendingComment || !commentText.trim()}
+                      >
+                        {sendingComment ? (
+                          <>
+                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                            Enviando...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="mr-1.5 h-3.5 w-3.5" />
+                            Enviar Mensagem
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </form>
+
+                  {/* Audio reply recorder */}
+                  <div className="pt-3 border-t border-slate-100">
+                    <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-slate-600">
+                      <FileAudio className="h-3.5 w-3.5 text-indigo-600" />
+                      <span>Responder com áudio</span>
+                    </div>
+                    <AudioRecorder
+                      disabled={sendingAudio}
+                      confirmLabel="Enviar áudio"
+                      onComplete={handleSendAudio}
+                    />
+                    {sendingAudio && (
+                      <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Enviando áudio...
+                      </p>
+                    )}
                   </div>
-                </form>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -572,15 +643,32 @@ export default function TicketDetail() {
             </>
           )}
 
-          <div className="max-w-4xl max-h-[85vh] flex flex-col items-center">
-            <img
-              src={getFileUrl(ticket, ticket.attachments[lightboxIndex])}
-              alt="Anexo ampliado"
-              className="max-h-[80vh] max-w-full object-contain rounded-lg shadow-2xl"
-            />
-            <p className="text-xs text-white/60 mt-3 font-medium">
-              Imagem {lightboxIndex + 1} de {ticket.attachments.length}
-            </p>
+          <div className="max-w-4xl max-h-[85vh] flex flex-col items-center w-full">
+            {isAudioPath(ticket.attachments[lightboxIndex]) ? (
+              <div className="w-full max-w-md flex flex-col items-center gap-3">
+                <FileAudio className="h-12 w-12 text-indigo-300" />
+                <p className="text-xs text-white/80 font-medium truncate w-full text-center">
+                  {ticket.attachments[lightboxIndex]}
+                </p>
+                <audio
+                  src={getFileUrl(ticket, ticket.attachments[lightboxIndex])}
+                  controls
+                  autoPlay
+                  className="w-full"
+                />
+              </div>
+            ) : (
+              <>
+                <img
+                  src={getFileUrl(ticket, ticket.attachments[lightboxIndex])}
+                  alt="Anexo ampliado"
+                  className="max-h-[80vh] max-w-full object-contain rounded-lg shadow-2xl"
+                />
+                <p className="text-xs text-white/60 mt-3 font-medium">
+                  Imagem {lightboxIndex + 1} de {ticket.attachments.length}
+                </p>
+              </>
+            )}
           </div>
         </div>
       )}
