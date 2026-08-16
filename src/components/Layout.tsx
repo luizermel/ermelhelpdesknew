@@ -35,11 +35,12 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { getFileUrl } from '@/services/api'
 import { cn } from '@/lib/utils'
+import { AVAILABLE_ICONS } from '@/pages/Settings'
 
 interface NavItem {
   to: string
-  label: string
-  icon: LucideIcon
+  defaultLabel: string
+  defaultIcon: LucideIcon
   adminOnly?: boolean
   exact?: boolean
 }
@@ -53,9 +54,9 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Atendimento',
     items: [
-      { to: '/chamados', label: 'Chamados', icon: TicketIcon },
-      { to: '/novo-chamado', label: 'Novo Chamado', icon: PlusCircle, exact: true },
-      { to: '/conhecimento', label: 'Base de Conhecimento', icon: BookOpen },
+      { to: '/chamados', defaultLabel: 'Chamados', defaultIcon: TicketIcon },
+      { to: '/novo-chamado', defaultLabel: 'Novo Chamado', defaultIcon: PlusCircle, exact: true },
+      { to: '/conhecimento', defaultLabel: 'Base de Conhecimento', defaultIcon: BookOpen },
     ],
   },
   {
@@ -63,27 +64,38 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       {
         to: '/admin',
-        label: 'Painel de Controle',
-        icon: ShieldCheck,
+        defaultLabel: 'Painel de Controle',
+        defaultIcon: ShieldCheck,
         adminOnly: true,
         exact: true,
       },
-      { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { to: '/fila', label: 'Fila de Atendimento', icon: ListOrdered, adminOnly: true },
-      { to: '/respostas-rapidas', label: 'Respostas Rápidas', icon: Zap },
+      { to: '/dashboard', defaultLabel: 'Dashboard', defaultIcon: LayoutDashboard },
+      {
+        to: '/fila',
+        defaultLabel: 'Fila de Atendimento',
+        defaultIcon: ListOrdered,
+        adminOnly: true,
+      },
+      { to: '/respostas-rapidas', defaultLabel: 'Respostas Rápidas', defaultIcon: Zap },
     ],
   },
   {
     label: 'Administração',
     items: [
-      { to: '/cadastros', label: 'Cadastros', icon: Database, adminOnly: true, exact: true },
-      { to: '/aprovacoes', label: 'Aprovações', icon: CheckCheck },
-      { to: '/relatorios', label: 'Relatórios', icon: BarChart3, adminOnly: true },
-      { to: '/logs', label: 'Logs do Sistema', icon: ScrollText, adminOnly: true },
+      {
+        to: '/cadastros',
+        defaultLabel: 'Cadastros',
+        defaultIcon: Database,
+        adminOnly: true,
+        exact: true,
+      },
+      { to: '/aprovacoes', defaultLabel: 'Aprovações', defaultIcon: CheckCheck },
+      { to: '/relatorios', defaultLabel: 'Relatórios', defaultIcon: BarChart3, adminOnly: true },
+      { to: '/logs', defaultLabel: 'Logs do Sistema', defaultIcon: ScrollText, adminOnly: true },
       {
         to: '/configuracoes',
-        label: 'Configurações',
-        icon: SettingsIcon,
+        defaultLabel: 'Configurações',
+        defaultIcon: SettingsIcon,
         adminOnly: true,
         exact: true,
       },
@@ -95,7 +107,7 @@ const COLLAPSE_KEY = 'hdh-sidebar-collapsed'
 
 export default function Layout() {
   const { user, isAdmin, signOut, userSector } = useAuth()
-  const { systemName, systemSubtitle, logoUrl } = useSystemSettings()
+  const { settings, systemName, systemSubtitle, logoUrl } = useSystemSettings()
   const navigate = useNavigate()
   const location = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -115,7 +127,6 @@ export default function Layout() {
     }
   }, [collapsed])
 
-  // close mobile drawer on route change
   useEffect(() => {
     setMobileMenuOpen(false)
   }, [location.pathname])
@@ -134,6 +145,25 @@ export default function Layout() {
     return name.slice(0, 2).toUpperCase()
   }
 
+  // Helper to map custom menu settings
+  const getCustomizedItem = (item: NavItem) => {
+    const customList = settings?.custom_menu
+    if (Array.isArray(customList)) {
+      const found = customList.find((c) => c.path === item.to)
+      if (found) {
+        const iconMatch = AVAILABLE_ICONS.find((ic) => ic.name === found.iconName)
+        return {
+          label: found.label || item.defaultLabel,
+          Icon: iconMatch ? iconMatch.icon : item.defaultIcon,
+        }
+      }
+    }
+    return {
+      label: item.defaultLabel,
+      Icon: item.defaultIcon,
+    }
+  }
+
   const filteredGroups = NAV_GROUPS.map((g) => ({
     ...g,
     items: g.items.filter((item) => !item.adminOnly || isAdmin),
@@ -145,6 +175,8 @@ export default function Layout() {
   }
 
   const sidebarWidth = collapsed ? 76 : 260
+  const primaryColor = settings?.primary_color || '#082844'
+  const sidebarBg = `linear-gradient(180deg, ${primaryColor} 0%, #041a2e 100%)`
 
   const renderBrand = (compact: boolean) => (
     <div
@@ -165,7 +197,7 @@ export default function Layout() {
           <h1 className="font-bold text-white leading-none tracking-tight truncate">
             {systemName}
           </h1>
-          <p className="text-[11px] text-white/60 mt-1 font-medium truncate">{systemSubtitle}</p>
+          <p className="text-[11px] text-cyan-200/70 mt-1 font-medium truncate">{systemSubtitle}</p>
         </div>
       )}
     </div>
@@ -183,13 +215,13 @@ export default function Layout() {
             </div>
           )}
           {group.items.map((item) => {
-            const Icon = item.icon
+            const { label, Icon } = getCustomizedItem(item)
             const active = isActive(item)
             return (
               <NavLink
                 key={item.to}
                 to={item.to}
-                title={compact ? item.label : undefined}
+                title={compact ? label : undefined}
                 className={({ isActive: directActive }) => {
                   const a = directActive || active
                   return cn(
@@ -207,7 +239,7 @@ export default function Layout() {
                     active ? 'text-white' : 'text-white/60',
                   )}
                 />
-                {!compact && <span className="truncate">{item.label}</span>}
+                {!compact && <span className="truncate">{label}</span>}
               </NavLink>
             )
           })}
@@ -255,10 +287,8 @@ export default function Layout() {
     </div>
   )
 
-  const sidebarBg = 'linear-gradient(180deg, #0c3b68 0%, #082844 100%)'
-
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col antialiased text-slate-900">
+    <div className="min-h-screen bg-slate-50 flex flex-col antialiased text-slate-900 font-sans">
       {/* Desktop Sidebar */}
       <aside
         className="hidden lg:flex fixed inset-y-0 left-0 flex-col z-30 shadow-lg transition-[width] duration-200"
@@ -314,7 +344,7 @@ export default function Layout() {
                 {user?.avatar && (
                   <AvatarImage src={getFileUrl(user, user.avatar)} alt={user.name} />
                 )}
-                <AvatarFallback className="bg-indigo-600 text-white font-semibold text-xs">
+                <AvatarFallback className="bg-[#0062a8] text-white font-semibold text-xs">
                   {getInitials(user?.name)}
                 </AvatarFallback>
               </Avatar>
@@ -325,7 +355,7 @@ export default function Layout() {
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-semibold leading-none">{user?.name}</p>
                 <p className="text-xs leading-none text-muted-foreground truncate">{user?.email}</p>
-                <p className="text-[11px] text-indigo-600 font-medium mt-1">
+                <p className="text-[11px] text-[#0062a8] font-medium mt-1">
                   {isAdmin ? 'Administrador' : `Setor: ${userSector?.name || 'Geral'}`}
                 </p>
               </div>
@@ -381,7 +411,7 @@ export default function Layout() {
         </div>
       )}
 
-      {/* Main Content Area — offset by fixed sidebar on desktop */}
+      {/* Main Content Area */}
       <div className="hdh-main flex flex-col flex-1 min-h-screen">
         <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6 sm:py-8 max-w-7xl w-full mx-auto animate-fade-in-up">
           <Outlet />

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-16T15:12:52.242Z",
+  "generatedAt": "2026-08-16T20:47:52.061Z",
   "collections": [
     {
       "name": "users",
@@ -51,6 +51,13 @@
           "required": false,
           "system": false,
           "collectionRef": "sectors"
+        },
+        {
+          "name": "company",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "companies"
         }
       ],
       "indexes": [
@@ -546,7 +553,7 @@
       "apiRules": {
         "list": "@request.auth.role = 'admin' || @request.auth.id = requester",
         "view": "@request.auth.role = 'admin' || @request.auth.id = requester",
-        "create": "@request.auth.id != \"\"",
+        "create": "",
         "update": "@request.auth.role = 'admin' || @request.auth.id = requester",
         "delete": "@request.auth.role = 'admin' || @request.auth.id = requester"
       },
@@ -573,7 +580,7 @@
         {
           "name": "requester",
           "type": "relation",
-          "required": true,
+          "required": false,
           "system": false,
           "collectionRef": "users"
         },
@@ -597,6 +604,44 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "email",
+          "type": "email",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sector_text",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "company_text",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "company",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "companies"
+        },
+        {
+          "name": "sector",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "sectors"
         }
       ],
       "indexes": [
@@ -741,6 +786,60 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "custom_menu",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "institutional_desc",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "show_institutional_newline",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "login_title",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "login_desc",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "footer_left",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "footer_right",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "panel_color",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "allow_public_register",
+          "type": "bool",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": []
@@ -1011,6 +1110,46 @@
         "CREATE INDEX idx_inventory_movements_item ON inventory_movements (item)",
         "CREATE INDEX idx_inventory_movements_created ON inventory_movements (created DESC)"
       ]
+    },
+    {
+      "name": "subcategories",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "category_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_subcategories_name ON subcategories (name)"]
     }
   ]
 }

@@ -8,16 +8,33 @@ export interface SystemSettingsContext {
   systemSubtitle: string
   logoUrl: string
   primaryColor: string
+  panelColor: string
+  institutionalDesc: string
+  showInstitutionalNewline: boolean
+  loginTitle: string
+  loginDesc: string
+  footerLeft: string
+  footerRight: string
+  allowPublicRegister: boolean
   settings: SystemSettings | null
   refresh: () => Promise<void>
   loading: boolean
 }
 
 const DEFAULTS: SystemSettingsContext = {
-  systemName: 'Help Desk Hub',
-  systemSubtitle: 'Central de TI',
+  systemName: 'Help Desk TI',
+  systemSubtitle: 'Central de suporte',
   logoUrl: '',
-  primaryColor: '#0c3b68',
+  primaryColor: '#082844',
+  panelColor: '#082844',
+  institutionalDesc:
+    'Abra chamados em segundos, acompanhe o andamento em tempo real e ajude a equipe de TI a identificar problemas recorrentes por setor.',
+  showInstitutionalNewline: true,
+  loginTitle: 'Bem-vindo',
+  loginDesc: 'Entre para acompanhar solicitações e manter seu trabalho em movimento.',
+  footerLeft: 'Uso interno • Ambiente corporativo',
+  footerRight: 'Suporte com transparência',
+  allowPublicRegister: true,
   settings: null,
   refresh: async () => {},
   loading: true,
@@ -34,6 +51,14 @@ async function loadSettings(): Promise<SystemSettingsContext> {
       systemSubtitle: s?.system_subtitle || DEFAULTS.systemSubtitle,
       logoUrl: s?.logo_url || '',
       primaryColor: s?.primary_color || DEFAULTS.primaryColor,
+      panelColor: s?.panel_color || s?.primary_color || DEFAULTS.panelColor,
+      institutionalDesc: s?.institutional_desc || DEFAULTS.institutionalDesc,
+      showInstitutionalNewline: s?.show_institutional_newline ?? DEFAULTS.showInstitutionalNewline,
+      loginTitle: s?.login_title || DEFAULTS.loginTitle,
+      loginDesc: s?.login_desc || DEFAULTS.loginDesc,
+      footerLeft: s?.footer_left || DEFAULTS.footerLeft,
+      footerRight: s?.footer_right || DEFAULTS.footerRight,
+      allowPublicRegister: s?.allow_public_register ?? DEFAULTS.allowPublicRegister,
       settings: s,
       refresh: doRefresh,
       loading: false,

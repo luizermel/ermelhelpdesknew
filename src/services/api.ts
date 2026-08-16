@@ -5,6 +5,7 @@ import type {
   Asset,
   AuditLog,
   Category,
+  Subcategory,
   Company,
   Contact,
   InventoryItem,
@@ -304,6 +305,26 @@ export const categoriesService = {
   },
 }
 
+export const subcategoriesService = {
+  async getAll(): Promise<Subcategory[]> {
+    return await pb.collection('subcategories').getFullList<Subcategory>({ sort: 'name' })
+  },
+  async create(name: string, category_id?: string): Promise<Subcategory> {
+    const r = await pb.collection('subcategories').create<Subcategory>({ name, category_id })
+    await auditService.log('create', 'subcategory', r.id, `Subcategoria criada: ${name}`)
+    return r
+  },
+  async update(id: string, name: string, category_id?: string): Promise<Subcategory> {
+    const r = await pb.collection('subcategories').update<Subcategory>(id, { name, category_id })
+    await auditService.log('update', 'subcategory', id, `Subcategoria atualizada: ${name}`)
+    return r
+  },
+  async remove(id: string): Promise<void> {
+    await pb.collection('subcategories').delete(id)
+    await auditService.log('delete', 'subcategory', id, 'Subcategoria removida')
+  },
+}
+
 // =========================================================
 // Priorities
 // =========================================================
@@ -396,24 +417,36 @@ export const approvalsService = {
   async getAll(): Promise<Approval[]> {
     return await pb.collection('approvals').getFullList<Approval>({
       sort: '-created',
-      expand: 'requester,approver',
+      expand: 'requester,approver,company,sector',
     })
   },
-  async create(data: {
-    title: string
-    description?: string
-    requester: string
-  }): Promise<Approval> {
+  async create(data: Record<string, unknown>): Promise<Approval> {
     const r = await pb
       .collection('approvals')
-      .create<Approval>(data, { expand: 'requester,approver' })
-    await auditService.log('create', 'approval', r.id, `Aprovação criada: ${data.title}`)
+      .create<Approval>(data, { expand: 'requester,approver,company,sector' })
+    await auditService.log(
+      'create',
+      'approval',
+      r.id,
+      `Aprovação criada: ${data.title || 'Solicitação'}`,
+    )
+    return r
+  },
+  async update(id: string, data: Record<string, unknown>): Promise<Approval> {
+    const r = await pb
+      .collection('approvals')
+      .update<Approval>(id, data, { expand: 'requester,approver,company,sector' })
+    await auditService.log('update', 'approval', id, `Aprovação atualizada: ${id}`)
     return r
   },
   async decide(id: string, status: ApprovalStatus, approverId: string): Promise<Approval> {
     const r = await pb
       .collection('approvals')
-      .update<Approval>(id, { status, approver: approverId }, { expand: 'requester,approver' })
+      .update<Approval>(
+        id,
+        { status, approver: approverId },
+        { expand: 'requester,approver,company,sector' },
+      )
     await auditService.log(
       status === 'Aprovado' ? 'approve' : 'reject',
       'approval',

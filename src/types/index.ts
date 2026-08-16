@@ -11,9 +11,11 @@ export interface User extends RecordModel {
   name: string
   role: UserRole
   sector?: string
+  company?: string
   avatar?: string
   expand?: {
     sector?: Sector
+    company?: Company
   }
 }
 
@@ -81,6 +83,11 @@ export interface Category extends RecordModel {
   name: string
 }
 
+export interface Subcategory extends RecordModel {
+  name: string
+  category_id?: string
+}
+
 export interface Priority extends RecordModel {
   name: string
   sla_hours?: number
@@ -109,11 +116,19 @@ export interface Approval extends RecordModel {
   title: string
   description?: string
   status: ApprovalStatus
-  requester: string
+  requester?: string
   approver?: string | null
+  name?: string
+  email?: string
+  sector_text?: string
+  company_text?: string
+  company?: string
+  sector?: string
   expand?: {
     requester?: User
     approver?: User
+    company?: Company
+    sector?: Sector
   }
 }
 
@@ -128,15 +143,30 @@ export interface AuditLog extends RecordModel {
   }
 }
 
+export interface CustomMenuItem {
+  path: string
+  label: string
+  iconName: string
+}
+
 export interface SystemSettings extends RecordModel {
   system_name?: string
   system_subtitle?: string
   logo_url?: string
   primary_color?: string
+  panel_color?: string
+  institutional_desc?: string
+  show_institutional_newline?: boolean
+  login_title?: string
+  login_desc?: string
+  footer_left?: string
+  footer_right?: string
+  allow_public_register?: boolean
   smtp_host?: string
   smtp_port?: number
   smtp_user?: string
   smtp_password?: string
+  custom_menu?: CustomMenuItem[]
 }
 
 export type AssetType =
