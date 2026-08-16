@@ -11,11 +11,13 @@ import {
   Loader2,
   Shield,
   User as UserIcon,
+  Package,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { ticketsService, usersService, sectorsService } from '@/services/api'
 import useRealtime from '@/hooks/use-realtime'
 import type { Ticket, User, Sector, TicketStatus, UserRole } from '@/types'
+import { InventoryTab } from '@/pages/AdminInventory'
 import { StatusBadge, PriorityBadge } from '@/components/TicketBadges'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -225,6 +227,13 @@ export default function AdminPanel() {
           >
             <Users className="h-4 w-4" />
             Usuários Cadastrados ({users.length})
+          </TabsTrigger>
+          <TabsTrigger
+            value="estoque"
+            className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-xs text-xs font-semibold gap-2"
+          >
+            <Package className="h-4 w-4" />
+            Estoque
           </TabsTrigger>
         </TabsList>
 
@@ -517,6 +526,11 @@ export default function AdminPanel() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ESTOQUE TAB */}
+        <TabsContent value="estoque" className="space-y-4">
+          <InventoryTab />
         </TabsContent>
       </Tabs>
 

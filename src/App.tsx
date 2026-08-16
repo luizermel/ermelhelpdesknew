@@ -16,6 +16,14 @@ import NewTicket from './pages/NewTicket'
 import TicketDetail from './pages/TicketDetail'
 import AdminPanel from './pages/AdminPanel'
 import Reports from './pages/Reports'
+import Knowledge from './pages/Knowledge'
+import Queue from './pages/Queue'
+import QuickReplies from './pages/QuickReplies'
+import Records from './pages/Records'
+import Approvals from './pages/Approvals'
+import Logs from './pages/Logs'
+import SettingsPage from './pages/Settings'
+import AssetDetail from './pages/AssetDetail'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -62,7 +70,26 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/chamados" element={<TicketsList />} />
             <Route path="/chamados/novo" element={<NewTicket />} />
+            <Route path="/novo-chamado" element={<NewTicket />} />
             <Route path="/chamados/:id" element={<TicketDetail />} />
+
+            {/* Atendimento */}
+            <Route path="/conhecimento" element={<Knowledge />} />
+            <Route path="/respostas-rapidas" element={<QuickReplies />} />
+            <Route path="/aprovacoes" element={<Approvals />} />
+
+            {/* Ativo detalhe */}
+            <Route path="/ativo/:id" element={<AssetDetail />} />
+
+            {/* Operação — admin */}
+            <Route
+              path="/fila"
+              element={
+                <ProtectedRoute adminOnly>
+                  <Queue />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Admin-only Routes */}
             <Route
@@ -78,6 +105,30 @@ const App = () => (
               element={
                 <ProtectedRoute adminOnly>
                   <Reports />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/cadastros"
+              element={
+                <ProtectedRoute adminOnly>
+                  <Records />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/logs"
+              element={
+                <ProtectedRoute adminOnly>
+                  <Logs />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/configuracoes"
+              element={
+                <ProtectedRoute adminOnly>
+                  <SettingsPage />
                 </ProtectedRoute>
               }
             />
