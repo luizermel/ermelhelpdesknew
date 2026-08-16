@@ -143,7 +143,7 @@ export const usersService = {
   async getAll(): Promise<User[]> {
     return await pb.collection('users').getFullList<User>({
       sort: 'name',
-      expand: 'sector',
+      expand: 'sector,company',
     })
   },
 
@@ -152,7 +152,7 @@ export const usersService = {
       userId,
       { role },
       {
-        expand: 'sector',
+        expand: 'sector,company',
       },
     )
   },
@@ -162,7 +162,17 @@ export const usersService = {
       userId,
       { sector: sectorId },
       {
-        expand: 'sector',
+        expand: 'sector,company',
+      },
+    )
+  },
+
+  async updateCompany(userId: string, companyId: string): Promise<User> {
+    return await pb.collection('users').update<User>(
+      userId,
+      { company: companyId },
+      {
+        expand: 'sector,company',
       },
     )
   },
@@ -206,31 +216,30 @@ export const knowledgeService = {
     return await pb.collection('knowledge_articles').getFullList<KnowledgeArticle>({
       sort: '-created',
       filter,
+      expand: 'company',
     })
   },
   async getById(id: string): Promise<KnowledgeArticle> {
-    return await pb.collection('knowledge_articles').getOne<KnowledgeArticle>(id)
+    return await pb.collection('knowledge_articles').getOne<KnowledgeArticle>(id, {
+      expand: 'company',
+    })
   },
-  async create(data: {
-    title: string
-    content: string
-    category?: string
-  }): Promise<KnowledgeArticle> {
-    const r = await pb.collection('knowledge_articles').create<KnowledgeArticle>(data)
-    await auditService.log('create', 'knowledge_article', r.id, `Artigo criado: ${data.title}`)
+  async create(data: FormData | Record<string, unknown>): Promise<KnowledgeArticle> {
+    const r = await pb
+      .collection('knowledge_articles')
+      .create<KnowledgeArticle>(data, { expand: 'company' })
+    const title =
+      data instanceof FormData ? (data.get('title') as string) : (data as { title?: string }).title
+    await auditService.log('create', 'knowledge_article', r.id, `Artigo criado: ${title}`)
     return r
   },
-  async update(
-    id: string,
-    data: Partial<{ title: string; content: string; category?: string }>,
-  ): Promise<KnowledgeArticle> {
-    const r = await pb.collection('knowledge_articles').update<KnowledgeArticle>(id, data)
-    await auditService.log(
-      'update',
-      'knowledge_article',
-      id,
-      `Artigo atualizado: ${data.title || id}`,
-    )
+  async update(id: string, data: FormData | Partial<KnowledgeArticle>): Promise<KnowledgeArticle> {
+    const r = await pb
+      .collection('knowledge_articles')
+      .update<KnowledgeArticle>(id, data, { expand: 'company' })
+    const title =
+      data instanceof FormData ? (data.get('title') as string) : (data as { title?: string }).title
+    await auditService.log('update', 'knowledge_article', id, `Artigo atualizado: ${title || id}`)
     return r
   },
   async remove(id: string): Promise<void> {
@@ -330,16 +339,31 @@ export const subcategoriesService = {
 // =========================================================
 export const prioritiesService = {
   async getAll(): Promise<Priority[]> {
-    return await pb.collection('priorities').getFullList<Priority>({ sort: 'name' })
+    return await pb.collection('priorities').getFullList<Priority>({ sort: 'level,name' })
   },
-  async create(data: { name: string; sla_hours?: number }): Promise<Priority> {
+  async create(data: {
+    name: string
+    sla_hours?: number
+    level?: number
+    color?: string
+    active?: boolean
+  }): Promise<Priority> {
     const r = await pb.collection('priorities').create<Priority>(data)
     await auditService.log('create', 'priority', r.id, `Prioridade criada: ${data.name}`)
     return r
   },
-  async update(id: string, data: { name: string; sla_hours?: number }): Promise<Priority> {
+  async update(
+    id: string,
+    data: Partial<{
+      name: string
+      sla_hours?: number
+      level?: number
+      color?: string
+      active?: boolean
+    }>,
+  ): Promise<Priority> {
     const r = await pb.collection('priorities').update<Priority>(id, data)
-    await auditService.log('update', 'priority', id, `Prioridade atualizada: ${data.name}`)
+    await auditService.log('update', 'priority', id, `Prioridade atualizada: ${data.name || id}`)
     return r
   },
   async remove(id: string): Promise<void> {

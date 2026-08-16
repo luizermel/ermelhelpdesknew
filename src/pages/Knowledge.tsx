@@ -1,15 +1,35 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react'
-import { BookOpen, Search, FileText, Loader2, Plus, Pencil, Trash2, X } from 'lucide-react'
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react'
+import {
+  BookOpen,
+  Search,
+  FileText,
+  Loader2,
+  Plus,
+  Pencil,
+  Trash2,
+  X,
+  Paperclip,
+  Download,
+  Globe,
+  Building2,
+} from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
-import { knowledgeService } from '@/services/api'
+import { knowledgeService, getFileUrl } from '@/services/api'
 import useRealtime from '@/hooks/use-realtime'
-import type { KnowledgeArticle } from '@/types'
+import type { KnowledgeArticle, KnowledgeVisibility, Company } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Dialog,
   DialogContent,
@@ -20,9 +40,10 @@ import {
 } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
+import pb from '@/lib/pocketbase/client'
 
 export default function Knowledge() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, user } = useAuth()
   const [articles, setArticles] = useState<KnowledgeArticle[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
@@ -34,6 +55,12 @@ export default function Knowledge() {
   const [formTitle, setFormTitle] = useState('')
   const [formContent, setFormContent] = useState('')
   const [formCategory, setFormCategory] = useState('')
+  const [formVisibility, setFormVisibility] = useState<KnowledgeVisibility>('GERAL')
+  const [formCompany, setFormCompany] = useState('')
+  const [formFiles, setFormFiles] = useState<File[]>([])
+  const [companies, setCompanies] = useState<Company[]>([])
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const fetch = useCallback(async () => {
     try {
@@ -49,34 +76,53 @@ export default function Knowledge() {
 
   useEffect(() => {
     fetch()
+    // carrega empresas para o select de visibilidade
+    pb.collection('companies')
+      .getFullList<Company>({ sort: 'name' })
+      .then(setCompanies)
+      .catch(() => undefined)
   }, [fetch])
 
   useRealtime<KnowledgeArticle>('knowledge_articles', () => {
     fetch()
   })
 
+  // Filtragem por visibilidade: GERAL todos veem; "Por empresa" só mesma empresa do autor
+  const visibleArticles = useMemo(() => {
+    if (!user) return []
+    return articles.filter((a) => {
+      if (a.visibility !== 'Por empresa') return true
+      // mesmo empresa do autor
+      const authorCompany = a.company || a.expand?.company?.id
+      return !!authorCompany && authorCompany === user.company
+    })
+  }, [articles, user])
+
   const filtered = useMemo(() => {
-    if (!search.trim()) return articles
+    if (!search.trim()) return visibleArticles
     const q = search.toLowerCase()
-    return articles.filter(
+    return visibleArticles.filter(
       (a) =>
         a.title.toLowerCase().includes(q) ||
         (a.category || '').toLowerCase().includes(q) ||
         a.content.toLowerCase().includes(q),
     )
-  }, [articles, search])
+  }, [visibleArticles, search])
 
   const categories = useMemo(() => {
     const set = new Set<string>()
-    articles.forEach((a) => a.category && set.add(a.category))
+    visibleArticles.forEach((a) => a.category && set.add(a.category))
     return Array.from(set).sort()
-  }, [articles])
+  }, [visibleArticles])
 
   const openCreate = () => {
     setEditing(null)
     setFormTitle('')
     setFormContent('')
     setFormCategory('')
+    setFormVisibility('GERAL')
+    setFormCompany('')
+    setFormFiles([])
     setEditOpen(true)
   }
 
@@ -85,7 +131,19 @@ export default function Knowledge() {
     setFormTitle(a.title)
     setFormContent(a.content)
     setFormCategory(a.category || '')
+    setFormVisibility(a.visibility || 'GERAL')
+    setFormCompany(a.company || '')
+    setFormFiles([])
     setEditOpen(true)
+  }
+
+  const handleFileSelect = (files: FileList | null) => {
+    if (!files) return
+    setFormFiles((prev) => [...prev, ...Array.from(files)].slice(0, 10))
+  }
+
+  const removeFormFile = (index: number) => {
+    setFormFiles((prev) => prev.filter((_, i) => i !== index))
   }
 
   const handleSave = async (e: React.FormEvent) => {
@@ -94,21 +152,25 @@ export default function Knowledge() {
       toast.error('Informe o título.')
       return
     }
+    if (formVisibility === 'Por empresa' && !formCompany) {
+      toast.error('Selecione a empresa para a visibilidade "Por empresa".')
+      return
+    }
     setSaving(true)
     try {
+      const formData = new FormData()
+      formData.append('title', formTitle.trim())
+      formData.append('content', formContent)
+      formData.append('category', formCategory.trim())
+      formData.append('visibility', formVisibility)
+      formData.append('company', formVisibility === 'Por empresa' ? formCompany : '')
+      formFiles.forEach((f) => formData.append('attachments', f))
+
       if (editing) {
-        await knowledgeService.update(editing.id, {
-          title: formTitle.trim(),
-          content: formContent,
-          category: formCategory.trim(),
-        })
+        await knowledgeService.update(editing.id, formData)
         toast.success('Artigo atualizado!')
       } else {
-        await knowledgeService.create({
-          title: formTitle.trim(),
-          content: formContent,
-          category: formCategory.trim(),
-        })
+        await knowledgeService.create(formData)
         toast.success('Artigo publicado!')
       }
       setEditOpen(false)
@@ -131,6 +193,11 @@ export default function Knowledge() {
       console.error(err)
       toast.error('Erro ao remover artigo.')
     }
+  }
+
+  const downloadAttachment = (article: KnowledgeArticle, filename: string) => {
+    const url = getFileUrl(article, filename)
+    window.open(url, '_blank')
   }
 
   return (
@@ -228,14 +295,33 @@ export default function Knowledge() {
               <CardHeader className="p-4 pb-2">
                 <div className="flex items-start justify-between gap-2">
                   <FileText className="h-5 w-5 text-indigo-500 shrink-0 mt-0.5" />
-                  {a.category && (
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] bg-indigo-50 text-indigo-700 border-indigo-100"
-                    >
-                      {a.category}
-                    </Badge>
-                  )}
+                  <div className="flex items-center gap-1 flex-wrap justify-end">
+                    {a.visibility === 'Por empresa' ? (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] bg-amber-50 text-amber-700 border-amber-100"
+                      >
+                        <Building2 className="h-2.5 w-2.5 mr-0.5" />
+                        Por empresa
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-100"
+                      >
+                        <Globe className="h-2.5 w-2.5 mr-0.5" />
+                        Geral
+                      </Badge>
+                    )}
+                    {a.category && (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] bg-indigo-50 text-indigo-700 border-indigo-100"
+                      >
+                        {a.category}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
                 <CardTitle className="text-sm font-bold text-slate-900 leading-snug mt-1 group-hover:text-indigo-700">
                   {a.title}
@@ -297,14 +383,33 @@ export default function Knowledge() {
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
-                {openArticle.category && (
-                  <Badge
-                    variant="outline"
-                    className="text-[11px] bg-indigo-50 text-indigo-700 border-indigo-100 w-fit"
-                  >
-                    {openArticle.category}
-                  </Badge>
-                )}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {openArticle.category && (
+                    <Badge
+                      variant="outline"
+                      className="text-[11px] bg-indigo-50 text-indigo-700 border-indigo-100"
+                    >
+                      {openArticle.category}
+                    </Badge>
+                  )}
+                  {openArticle.visibility === 'Por empresa' ? (
+                    <Badge
+                      variant="outline"
+                      className="text-[11px] bg-amber-50 text-amber-700 border-amber-100"
+                    >
+                      <Building2 className="h-2.5 w-2.5 mr-0.5" />
+                      Por empresa
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="text-[11px] bg-emerald-50 text-emerald-700 border-emerald-100"
+                    >
+                      <Globe className="h-2.5 w-2.5 mr-0.5" />
+                      Geral
+                    </Badge>
+                  )}
+                </div>
                 <DialogDescription className="text-xs text-slate-400">
                   Publicado em{' '}
                   {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long' }).format(
@@ -316,6 +421,37 @@ export default function Knowledge() {
                 className="prose prose-sm max-w-none text-slate-700 [&_h3]:font-bold [&_h3]:text-slate-900 [&_h3]:mb-2 [&_p]:leading-relaxed"
                 dangerouslySetInnerHTML={{ __html: openArticle.content }}
               />
+
+              {/* Anexos */}
+              {openArticle.attachments && openArticle.attachments.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-slate-100">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Paperclip className="h-4 w-4 text-slate-500" />
+                    <h4 className="text-sm font-bold text-slate-900">
+                      Arquivos anexados ({openArticle.attachments.length})
+                    </h4>
+                  </div>
+                  <ul className="space-y-1.5">
+                    {openArticle.attachments.map((file) => (
+                      <li key={file}>
+                        <button
+                          type="button"
+                          onClick={() => downloadAttachment(openArticle, file)}
+                          className="w-full flex items-center gap-2 p-2 rounded-lg border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40 transition-colors text-left"
+                        >
+                          <div className="h-8 w-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                            <FileText className="h-4 w-4" />
+                          </div>
+                          <span className="text-xs font-medium text-slate-700 truncate flex-1">
+                            {file}
+                          </span>
+                          <Download className="h-4 w-4 text-indigo-600 shrink-0" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </>
           )}
         </DialogContent>
@@ -350,6 +486,43 @@ export default function Knowledge() {
                 placeholder="Ex: Rede, E-mail, Software"
               />
             </div>
+
+            {/* Visibilidade + Empresa */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">Visibilidade *</Label>
+                <Select
+                  value={formVisibility}
+                  onValueChange={(v) => setFormVisibility(v as KnowledgeVisibility)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a visibilidade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="GERAL">Geral (todos veem)</SelectItem>
+                    <SelectItem value="Por empresa">Por empresa</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {formVisibility === 'Por empresa' && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">Empresa do autor *</Label>
+                  <Select value={formCompany} onValueChange={setFormCompany}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a empresa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {companies.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-700">Conteúdo (HTML)</Label>
               <Textarea
@@ -363,6 +536,84 @@ export default function Knowledge() {
                 Você pode usar tags HTML básicas (h3, p, strong, ul, li).
               </p>
             </div>
+
+            {/* Upload de arquivos */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-700">
+                Anexar arquivos (opcional)
+              </Label>
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  handleFileSelect(e.dataTransfer.files)
+                }}
+                className="border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-xl p-4 text-center cursor-pointer transition-colors bg-slate-50/50 hover:bg-indigo-50/20"
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => handleFileSelect(e.target.files)}
+                />
+                <Paperclip className="h-5 w-5 mx-auto text-indigo-500 mb-1" />
+                <p className="text-xs font-medium text-slate-700">
+                  Clique para selecionar ou arraste arquivos
+                </p>
+                <p className="text-[11px] text-slate-400 mt-0.5">Até 10 anexos (máx 10MB cada)</p>
+              </div>
+
+              {/* Novos arquivos selecionados */}
+              {formFiles.length > 0 && (
+                <ul className="space-y-1">
+                  {formFiles.map((f, idx) => (
+                    <li
+                      key={idx}
+                      className="flex items-center gap-2 p-1.5 rounded-lg border border-slate-200 bg-white"
+                    >
+                      <FileText className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                      <span className="text-[11px] text-slate-700 truncate flex-1">{f.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeFormFile(idx)}
+                        className="text-slate-400 hover:text-red-600"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {/* Anexos já existentes (em edição) */}
+              {editing && editing.attachments && editing.attachments.length > 0 && (
+                <div>
+                  <p className="text-[11px] text-slate-500 mt-1 mb-1">Anexos atuais:</p>
+                  <ul className="space-y-1">
+                    {editing.attachments.map((f) => (
+                      <li
+                        key={f}
+                        className="flex items-center gap-2 p-1.5 rounded-lg border border-slate-100 bg-slate-50"
+                      >
+                        <FileText className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+                        <span className="text-[11px] text-slate-600 truncate flex-1">{f}</span>
+                        <button
+                          type="button"
+                          onClick={() => downloadAttachment(editing, f)}
+                          className="text-indigo-600 hover:text-indigo-700"
+                          title="Baixar"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
             <DialogFooter>
               <Button
                 type="button"

@@ -11,10 +11,17 @@ import {
   Layers,
   Building2,
   ShieldAlert,
+  Lock,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
-import { sectorsService, ticketsService, messagesService } from '@/services/api'
-import type { Sector, TicketCategory, TicketPriority } from '@/types'
+import {
+  sectorsService,
+  subcategoriesService,
+  ticketsService,
+  messagesService,
+} from '@/services/api'
+import type { Sector, Subcategory, TicketCategory, TicketPriority } from '@/types'
+import pb from '@/lib/pocketbase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -83,6 +90,8 @@ export default function NewTicket() {
 
   const [sectors, setSectors] = useState<Sector[]>([])
   const [loadingSectors, setLoadingSectors] = useState(true)
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([])
+  const [subcategory, setSubcategory] = useState('')
 
   // Form Fields
   const [title, setTitle] = useState('')
@@ -102,16 +111,39 @@ export default function NewTicket() {
       .getAll()
       .then((data) => {
         setSectors(data)
-        // Prefill user sector if present
+        // Setor travado com o setor do usuário logado
         if (user?.sector) {
           setSector(user.sector)
-        } else if (data.length > 0) {
-          setSector(data[0].id)
         }
       })
       .catch((err) => console.error(err))
       .finally(() => setLoadingSectors(false))
+
+    // Carrega subcategorias
+    subcategoriesService
+      .getAll()
+      .then(setSubcategories)
+      .catch((err) => console.error(err))
+
+    // Mantém inscrito em alterações de subcategorias em tempo real
+    const unsub = pb.collection('subcategories').subscribe('*', () => {
+      subcategoriesService
+        .getAll()
+        .then(setSubcategories)
+        .catch(() => undefined)
+    })
+    return () => {
+      unsub.then((u) => u())
+    }
   }, [user?.sector])
+
+  // Subcategorias filtradas pela categoria selecionada
+  const filteredSubcategories = subcategories.filter((s) => s.category_id === category)
+
+  // Quando a categoria muda, limpa a subcategoria
+  useEffect(() => {
+    setSubcategory('')
+  }, [category])
 
   const handleFileSelect = (files: FileList | null) => {
     setFileError(null)
@@ -189,6 +221,7 @@ export default function NewTicket() {
       formData.append('title', title.trim())
       formData.append('description', description.trim())
       formData.append('category', category)
+      if (subcategory) formData.append('subcategory', subcategory)
       formData.append('sector', sector)
       formData.append('priority', priority)
       formData.append('status', 'Aberto')
@@ -284,8 +317,8 @@ export default function NewTicket() {
               )}
             </div>
 
-            {/* Two Column Row: Category and Sector */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Three Column Row: Category, Subcategory and Sector */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {/* Category */}
               <div className="space-y-1.5">
                 <Label htmlFor="category" className="text-xs font-semibold text-slate-700">
@@ -312,16 +345,42 @@ export default function NewTicket() {
                 )}
               </div>
 
-              {/* Sector */}
+              {/* Subcategory */}
+              <div className="space-y-1.5">
+                <Label htmlFor="subcategory" className="text-xs font-semibold text-slate-700">
+                  Subcategoria
+                </Label>
+                <Select
+                  value={subcategory}
+                  onValueChange={setSubcategory}
+                  disabled={loading || filteredSubcategories.length === 0}
+                >
+                  <SelectTrigger id="subcategory">
+                    <SelectValue
+                      placeholder={
+                        filteredSubcategories.length === 0
+                          ? 'Sem subcategorias'
+                          : 'Selecione a subcategoria'
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredSubcategories.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-slate-400">Filtrada pela categoria selecionada</p>
+              </div>
+
+              {/* Sector — travado com o setor do usuário logado */}
               <div className="space-y-1.5">
                 <Label htmlFor="sector" className="text-xs font-semibold text-slate-700">
                   Setor do atendimento <span className="text-red-500">*</span>
                 </Label>
-                <Select
-                  value={sector}
-                  onValueChange={(val) => setSector(val)}
-                  disabled={loading || loadingSectors}
-                >
+                <Select value={sector} disabled>
                   <SelectTrigger id="sector">
                     <SelectValue
                       placeholder={loadingSectors ? 'Carregando setores...' : 'Selecione o setor'}
@@ -335,9 +394,10 @@ export default function NewTicket() {
                     ))}
                   </SelectContent>
                 </Select>
-                {fieldErrors.sector && (
-                  <p className="text-[11px] text-red-500 font-medium">{fieldErrors.sector}</p>
-                )}
+                <p className="text-[11px] text-slate-400 flex items-center gap-1">
+                  <Lock className="h-3 w-3" />
+                  Setor definido pelo seu perfil
+                </p>
               </div>
             </div>
 

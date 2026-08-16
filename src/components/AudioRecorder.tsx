@@ -78,6 +78,51 @@ export default function AudioRecorder({
     return ''
   }
 
+  // Verifica a permissão de microfone antes de iniciar a gravação.
+  // Retorna true se concedida, false caso contrário.
+  const checkMicrophonePermission = async (): Promise<boolean> => {
+    // Tenta primeiro a Permissions API (nem todos navegadores suportam 'microphone')
+    try {
+      if (navigator.permissions && navigator.permissions.query) {
+        const result = await navigator.permissions.query({
+          name: 'microphone' as PermissionName,
+        })
+        if (result.state === 'granted') return true
+        if (result.state === 'denied') {
+          toast.error(
+            'O acesso ao microfone está bloqueado. Conceda a permissão nas configurações do navegador e tente novamente.',
+          )
+          return false
+        }
+        // 'prompt': precisamos solicitar via getUserMedia
+      }
+    } catch {
+      // Permissions API indisponível ou 'microphone' não suportado — segue para getUserMedia
+    }
+
+    // Solicita efetivamente o acesso ao microfone
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      // Liberamos imediatamente — será reaberto no handleStart
+      stream.getTracks().forEach((t) => t.stop())
+      return true
+    } catch (err) {
+      const name = (err as { name?: string })?.name
+      if (name === 'NotAllowedError' || name === 'SecurityError') {
+        toast.error(
+          'Permissão de microfone negada. Autorize o acesso nas configurações do navegador para gravar áudio.',
+        )
+      } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+        toast.error('Nenhum microfone encontrado. Conecte um microfone e tente novamente.')
+      } else {
+        toast.error(
+          'Não foi possível acessar o microfone. Verifique as permissões e tente novamente.',
+        )
+      }
+      return false
+    }
+  }
+
   const handleStart = async () => {
     if (disabled) return
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -85,6 +130,10 @@ export default function AudioRecorder({
       toast.error('Seu navegador não suporta gravação de áudio.')
       return
     }
+
+    // Verifica/pergunta permissão de microfone antes de iniciar
+    const hasPermission = await checkMicrophonePermission()
+    if (!hasPermission) return
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })

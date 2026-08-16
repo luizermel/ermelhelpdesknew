@@ -1,5 +1,15 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { Plus, Pencil, Trash2, Loader2, Shield, User as UserIcon, Tag, Boxes } from 'lucide-react'
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Loader2,
+  Shield,
+  User as UserIcon,
+  Tag,
+  Boxes,
+  Building2,
+} from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import {
   sectorsCrudService,
@@ -7,14 +17,15 @@ import {
   subcategoriesService,
   prioritiesService,
   companiesService,
-  contactsService,
   usersService,
   sectorsService,
 } from '@/services/api'
-import type { Sector, Category, Subcategory, Priority, Company, Contact, User } from '@/types'
+import type { Sector, Category, Subcategory, Priority, Company, User } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Dialog,
@@ -42,11 +53,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { toast } from 'sonner'
 
-type TabKey = 'empresas' | 'contatos' | 'setores' | 'categorias' | 'prioridades' | 'atendentes'
+type TabKey = 'empresas' | 'setores' | 'categorias' | 'prioridades' | 'atendentes'
 
 const TABS: { value: TabKey; label: string }[] = [
   { value: 'empresas', label: 'Empresas' },
-  { value: 'contatos', label: 'Contatos' },
   { value: 'setores', label: 'Setores' },
   { value: 'categorias', label: 'Categorias' },
   { value: 'prioridades', label: 'Prioridades' },
@@ -93,9 +103,6 @@ export default function Records() {
         <TabsContent value="empresas">
           <CompaniesTab />
         </TabsContent>
-        <TabsContent value="contatos">
-          <ContactsTab />
-        </TabsContent>
         <TabsContent value="setores">
           <SectorsTab />
         </TabsContent>
@@ -140,7 +147,7 @@ function LoadingRows({ n, cols }: { n: number; cols: number }) {
 }
 
 // =========================================================
-// ABA DE CATEGORIAS E SUBCATEGORIAS (LAYOUT DE 2 COLUNAS - FOTO DE REFERÊNCIA)
+// ABA DE CATEGORIAS E SUBCATEGORIAS (LAYOUT DE 2 COLUNAS)
 // =========================================================
 function CategoriesSubcategoriesTwoColumnTab() {
   const [categories, setCategories] = useState<Category[]>([])
@@ -274,7 +281,7 @@ function CategoriesSubcategoriesTwoColumnTab() {
         </p>
       </div>
 
-      {/* Grid de 2 Colunas Lado a Lado (Foto da Tarefa) */}
+      {/* Grid de 2 Colunas Lado a Lado */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* COLUNA ESQUERDA: Categorias */}
         <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-2xs space-y-4">
@@ -787,7 +794,6 @@ function CompaniesTab() {
     setSelectedSubcategories(allSubcategories.map((sc) => sc.name))
     setOpen(true)
   }
-
   const openEdit = (c: Company) => {
     setEditing(c)
     setForm({ name: c.name, cnpj: c.cnpj || '', phone: c.phone || '', email: c.email || '' })
@@ -1077,7 +1083,10 @@ function PrioritiesTab() {
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Priority | null>(null)
   const [name, setName] = useState('')
+  const [level, setLevel] = useState<number | ''>(0)
+  const [color, setColor] = useState('#64748b')
   const [sla, setSla] = useState<number | ''>('')
+  const [active, setActive] = useState(true)
   const [saving, setSaving] = useState(false)
 
   const fetch = useCallback(async () => {
@@ -1097,13 +1106,19 @@ function PrioritiesTab() {
   const openCreate = () => {
     setEditing(null)
     setName('')
+    setLevel(0)
+    setColor('#64748b')
     setSla('')
+    setActive(true)
     setOpen(true)
   }
   const openEdit = (p: Priority) => {
     setEditing(p)
     setName(p.name)
+    setLevel(p.level ?? 0)
+    setColor(p.color || '#64748b')
     setSla(p.sla_hours ?? '')
+    setActive(p.active !== false)
     setOpen(true)
   }
 
@@ -1112,7 +1127,13 @@ function PrioritiesTab() {
     if (!name.trim()) return
     setSaving(true)
     try {
-      const data = { name: name.trim(), sla_hours: typeof sla === 'number' ? sla : undefined }
+      const data = {
+        name: name.trim(),
+        level: typeof level === 'number' ? level : 0,
+        color,
+        sla_hours: typeof sla === 'number' ? sla : undefined,
+        active,
+      }
       if (editing) await prioritiesService.update(editing.id, data)
       else await prioritiesService.create(data)
       toast.success(editing ? 'Prioridade atualizada!' : 'Prioridade criada!')
@@ -1159,10 +1180,16 @@ function PrioritiesTab() {
           <TableHeader className="bg-[#f8fafc]">
             <TableRow className="border-b border-slate-200/70 hover:bg-transparent">
               <TableHead className="text-xs font-semibold text-slate-600 py-3.5 px-6">
-                Nome
+                Prioridade
               </TableHead>
               <TableHead className="text-xs font-semibold text-slate-600 py-3.5 px-6">
-                SLA (horas)
+                Nível / Ordem
+              </TableHead>
+              <TableHead className="text-xs font-semibold text-slate-600 py-3.5 px-6">
+                Cor
+              </TableHead>
+              <TableHead className="text-xs font-semibold text-slate-600 py-3.5 px-6">
+                SLA (h)
               </TableHead>
               <TableHead className="text-xs font-semibold text-slate-600 py-3.5 px-6">
                 Situação
@@ -1174,25 +1201,44 @@ function PrioritiesTab() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <LoadingRows n={3} cols={4} />
+              <LoadingRows n={3} cols={6} />
             ) : items.length === 0 ? (
-              <EmptyRow colSpan={4} label="Nenhuma prioridade cadastrada." />
+              <EmptyRow colSpan={6} label="Nenhuma prioridade cadastrada." />
             ) : (
               items.map((p) => (
                 <TableRow
                   key={p.id}
                   className="hover:bg-slate-50/60 border-b border-slate-100 last:border-0"
                 >
-                  <TableCell className="text-xs font-bold text-[#0a2540] py-4 px-6">
-                    {p.name}
+                  <TableCell className="py-4 px-6">
+                    <span
+                      className="inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-semibold text-white"
+                      style={{ backgroundColor: p.color || '#64748b' }}
+                    >
+                      {p.name}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-xs text-slate-600 py-4 px-6">{p.level ?? 0}</TableCell>
+                  <TableCell className="py-4 px-6">
+                    <span
+                      className="inline-block h-5 w-5 rounded-full border border-slate-200"
+                      style={{ backgroundColor: p.color || '#64748b' }}
+                      title={p.color || '#64748b'}
+                    />
                   </TableCell>
                   <TableCell className="text-xs text-slate-600 py-4 px-6">
-                    {p.sla_hours ? `${p.sla_hours} horas` : '—'}
+                    {p.sla_hours ? `${p.sla_hours}h` : '—'}
                   </TableCell>
                   <TableCell className="py-4 px-6">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-[#0062a8] text-white">
-                      Ativo
-                    </span>
+                    {p.active !== false ? (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">
+                        Ativo
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-500">
+                        Inativo
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right py-4 px-6">
                     <div className="flex items-center justify-end gap-1">
@@ -1229,26 +1275,62 @@ function PrioritiesTab() {
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={save} className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-700">Nome *</Label>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ex: Alta"
-                required
-                autoFocus
-                className="h-10 text-xs sm:text-sm rounded-xl"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">Nome *</Label>
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Ex: Alta"
+                  required
+                  autoFocus
+                  className="h-10 text-xs sm:text-sm rounded-xl"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">Nível / Ordem</Label>
+                <Input
+                  type="number"
+                  value={level}
+                  onChange={(e) => setLevel(e.target.value === '' ? '' : Number(e.target.value))}
+                  placeholder="Ex: 1"
+                  className="h-10 text-xs sm:text-sm rounded-xl"
+                />
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-700">SLA (horas)</Label>
-              <Input
-                type="number"
-                value={sla}
-                onChange={(e) => setSla(e.target.value === '' ? '' : Number(e.target.value))}
-                placeholder="Ex: 4"
-                className="h-10 text-xs sm:text-sm rounded-xl"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">Cor</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="color"
+                    value={color}
+                    onChange={(e) => setColor(e.target.value)}
+                    className="h-10 w-16 p-1 rounded-xl"
+                  />
+                  <Input
+                    value={color}
+                    onChange={(e) => setColor(e.target.value)}
+                    className="h-10 text-xs sm:text-sm rounded-xl flex-1 font-mono"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">SLA (horas)</Label>
+                <Input
+                  type="number"
+                  value={sla}
+                  onChange={(e) => setSla(e.target.value === '' ? '' : Number(e.target.value))}
+                  placeholder="Ex: 4"
+                  className="h-10 text-xs sm:text-sm rounded-xl"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-3 pt-1">
+              <Switch checked={active} onCheckedChange={setActive} id="prio-active" />
+              <Label htmlFor="prio-active" className="text-xs font-semibold text-slate-700">
+                Prioridade ativa
+              </Label>
             </div>
             <DialogFooter>
               <Button
@@ -1282,11 +1364,27 @@ function PrioritiesTab() {
 function AttendantsTab() {
   const { user: currentUser } = useAuth()
   const [users, setUsers] = useState<User[]>([])
+  const [companies, setCompanies] = useState<Company[]>([])
+  const [sectors, setSectors] = useState<Sector[]>([])
   const [loading, setLoading] = useState(true)
+
+  const [editOpen, setEditOpen] = useState(false)
+  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [formRole, setFormRole] = useState<'user' | 'admin'>('user')
+  const [formCompany, setFormCompany] = useState('')
+  const [formSector, setFormSector] = useState('')
+  const [saving, setSaving] = useState(false)
 
   const fetch = useCallback(async () => {
     try {
-      setUsers(await usersService.getAll())
+      const [u, comp, sec] = await Promise.all([
+        usersService.getAll(),
+        companiesService.getAll(),
+        sectorsService.getAll(),
+      ])
+      setUsers(u)
+      setCompanies(comp)
+      setSectors(sec)
     } catch {
       toast.error('Erro ao carregar usuários.')
     } finally {
@@ -1298,193 +1396,43 @@ function AttendantsTab() {
     fetch()
   }, [fetch])
 
-  const toggleRole = async (u: User) => {
-    const newRole = u.role === 'admin' ? 'user' : 'admin'
+  const openEdit = (u: User) => {
+    setEditingUser(u)
+    setFormRole(u.role || 'user')
+    setFormCompany(u.company || '')
+    setFormSector(u.sector || '')
+    setEditOpen(true)
+  }
+
+  const saveEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingUser) return
+    setSaving(true)
     try {
-      await usersService.updateRole(u.id, newRole)
-      toast.success(`${u.name} agora é ${newRole === 'admin' ? 'Administrador' : 'Usuário Comum'}.`)
+      if (formRole !== editingUser.role) {
+        await usersService.updateRole(editingUser.id, formRole)
+      }
+      if (formCompany !== (editingUser.company || '')) {
+        await usersService.updateCompany(editingUser.id, formCompany)
+      }
+      if (formSector !== (editingUser.sector || '')) {
+        await usersService.updateSector(editingUser.id, formSector)
+      }
+      toast.success('Usuário atualizado!')
+      setEditOpen(false)
       fetch()
     } catch {
-      toast.error('Erro ao alterar papel.')
+      toast.error('Erro ao salvar usuário.')
+    } finally {
+      setSaving(false)
     }
   }
 
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-sm font-bold text-[#0c2340]">Usuários e Atendentes</h2>
-        <p className="text-xs text-slate-500">Gestão de permissões do sistema.</p>
-      </div>
-
-      <div className="bg-white border border-slate-200/80 rounded-xl overflow-hidden shadow-xs">
-        <Table>
-          <TableHeader className="bg-[#f8fafc]">
-            <TableRow className="border-b border-slate-200/70 hover:bg-transparent">
-              <TableHead className="text-xs font-semibold text-slate-600 py-3.5 px-6">
-                Usuário
-              </TableHead>
-              <TableHead className="text-xs font-semibold text-slate-600 py-3.5 px-6">
-                E-mail
-              </TableHead>
-              <TableHead className="text-xs font-semibold text-slate-600 py-3.5 px-6">
-                Setor
-              </TableHead>
-              <TableHead className="text-xs font-semibold text-slate-600 py-3.5 px-6">
-                Papel
-              </TableHead>
-              <TableHead className="text-right text-xs font-semibold text-slate-600 py-3.5 px-6">
-                Ação
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <LoadingRows n={4} cols={5} />
-            ) : users.length === 0 ? (
-              <EmptyRow colSpan={5} label="Nenhum usuário cadastrado." />
-            ) : (
-              users.map((u) => (
-                <TableRow
-                  key={u.id}
-                  className="hover:bg-slate-50/60 border-b border-slate-100 last:border-0"
-                >
-                  <TableCell className="text-xs font-bold text-[#0a2540] py-4 px-6">
-                    <div className="flex items-center gap-2">
-                      <Avatar className="h-7 w-7">
-                        <AvatarFallback className="bg-[#0062a8] text-white text-[10px] font-bold">
-                          {getInitials(u.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      {u.name}
-                      {u.id === currentUser?.id && (
-                        <span className="text-[10px] text-[#0062a8] font-semibold">(Você)</span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-xs text-slate-600 font-mono py-4 px-6">
-                    {u.email}
-                  </TableCell>
-                  <TableCell className="text-xs text-slate-600 py-4 px-6">
-                    {u.expand?.sector?.name || '—'}
-                  </TableCell>
-                  <TableCell className="py-4 px-6">
-                    {u.role === 'admin' ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-md bg-sky-100 text-[#0062a8]">
-                        <Shield className="h-3 w-3" />
-                        Admin
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-600">
-                        <UserIcon className="h-3 w-3" />
-                        Usuário
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right py-4 px-6">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-xs rounded-lg"
-                      disabled={u.id === currentUser?.id}
-                      onClick={() => toggleRole(u)}
-                    >
-                      {u.role === 'admin' ? 'Rebaixar' : 'Promover a Admin'}
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-    </div>
-  )
-}
-
-// =========================================================
-// Contatos Tab
-// =========================================================
-function ContactsTab() {
-  const [items, setItems] = useState<Contact[]>([])
-  const [companies, setCompanies] = useState<Company[]>([])
-  const [loading, setLoading] = useState(true)
-  const [open, setOpen] = useState(false)
-  const [editing, setEditing] = useState<Contact | null>(null)
-  const [form, setForm] = useState({ name: '', email: '', phone: '', company: '' })
-  const [saving, setSaving] = useState(false)
-
-  const fetch = useCallback(async () => {
-    try {
-      const [c, comp] = await Promise.all([contactsService.getAll(), companiesService.getAll()])
-      setItems(c)
-      setCompanies(comp)
-    } catch {
-      toast.error('Erro ao carregar contatos.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetch()
-  }, [fetch])
-
-  const openCreate = () => {
-    setEditing(null)
-    setForm({ name: '', email: '', phone: '', company: '' })
-    setOpen(true)
-  }
-  const openEdit = (c: Contact) => {
-    setEditing(c)
-    setForm({ name: c.name, email: c.email || '', phone: c.phone || '', company: c.company || '' })
-    setOpen(true)
-  }
-
-  const save = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!form.name.trim()) return
-    setSaving(true)
-    try {
-      const data = { ...form, company: form.company || undefined }
-      if (editing) await contactsService.update(editing.id, data)
-      else await contactsService.create(data)
-      toast.success(editing ? 'Contato atualizado!' : 'Contato criado!')
-      setOpen(false)
-      fetch()
-    } catch {
-      toast.error('Erro ao salvar contato.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const remove = async (c: Contact) => {
-    if (!confirm(`Remover o contato "${c.name}"?`)) return
-    try {
-      await contactsService.remove(c.id)
-      toast.success('Contato removido.')
-      fetch()
-    } catch {
-      toast.error('Erro ao remover contato.')
-    }
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-bold text-[#0c2340]">Contatos das Empresas</h2>
-          <p className="text-xs text-slate-500">
-            Pessoas de contato vinculadas às empresas atentas.
-          </p>
-        </div>
-        <Button
-          onClick={openCreate}
-          className="bg-[#0062a8] hover:bg-[#00508a] text-white font-semibold text-xs px-4 h-9 rounded-lg gap-1.5"
-        >
-          <Plus className="h-4 w-4" />
-          Novo contato
-        </Button>
+        <h2 className="text-sm font-bold text-[#0c2340]">Usuários do sistema</h2>
+        <p className="text-xs text-slate-500">Gestão de usuários, perfis e permissões.</p>
       </div>
 
       <div className="bg-white border border-slate-200/80 rounded-xl overflow-hidden shadow-xs">
@@ -1498,10 +1446,16 @@ function ContactsTab() {
                 E-mail
               </TableHead>
               <TableHead className="text-xs font-semibold text-slate-600 py-3.5 px-6">
-                Telefone
+                Empresa
               </TableHead>
               <TableHead className="text-xs font-semibold text-slate-600 py-3.5 px-6">
-                Empresa
+                Setor
+              </TableHead>
+              <TableHead className="text-xs font-semibold text-slate-600 py-3.5 px-6">
+                Perfil
+              </TableHead>
+              <TableHead className="text-xs font-semibold text-slate-600 py-3.5 px-6">
+                Situação
               </TableHead>
               <TableHead className="text-right text-xs font-semibold text-slate-600 py-3.5 px-6">
                 Ações
@@ -1510,46 +1464,70 @@ function ContactsTab() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <LoadingRows n={3} cols={5} />
-            ) : items.length === 0 ? (
-              <EmptyRow colSpan={5} label="Nenhum contato cadastrado." />
+              <LoadingRows n={4} cols={7} />
+            ) : users.length === 0 ? (
+              <EmptyRow colSpan={7} label="Nenhum usuário cadastrado." />
             ) : (
-              items.map((c) => (
+              users.map((u) => (
                 <TableRow
-                  key={c.id}
+                  key={u.id}
                   className="hover:bg-slate-50/60 border-b border-slate-100 last:border-0"
                 >
                   <TableCell className="text-xs font-bold text-[#0a2540] py-4 px-6">
-                    {c.name}
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-7 w-7">
+                        <AvatarFallback className="bg-[#0062a8] text-white text-[10px] font-bold">
+                          {getInitials(u.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col">
+                        <span>{u.name}</span>
+                        {u.id === currentUser?.id && (
+                          <span className="text-[10px] text-[#0062a8] font-semibold">(Você)</span>
+                        )}
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-xs text-slate-600 font-mono py-4 px-6">
+                    {u.email}
                   </TableCell>
                   <TableCell className="text-xs text-slate-600 py-4 px-6">
-                    {c.email || '—'}
+                    <span className="inline-flex items-center gap-1">
+                      <Building2 className="h-3 w-3 text-slate-400" />
+                      {u.expand?.company?.name || '—'}
+                    </span>
                   </TableCell>
                   <TableCell className="text-xs text-slate-600 py-4 px-6">
-                    {c.phone || '—'}
+                    {u.expand?.sector?.name || '—'}
                   </TableCell>
-                  <TableCell className="text-xs text-slate-600 py-4 px-6">
-                    {c.expand?.company?.name || '—'}
+                  <TableCell className="py-4 px-6">
+                    {u.role === 'admin' ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-md bg-sky-100 text-[#0062a8]">
+                        <Shield className="h-3 w-3" />
+                        admin
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-600">
+                        <UserIcon className="h-3 w-3" />
+                        user
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="py-4 px-6">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">
+                      Ativo
+                    </span>
                   </TableCell>
                   <TableCell className="text-right py-4 px-6">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-slate-600 hover:text-[#0062a8] hover:bg-sky-50 rounded-lg"
-                        onClick={() => openEdit(c)}
-                      >
-                        <Pencil className="h-4 w-4 stroke-[1.75]" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg"
-                        onClick={() => remove(c)}
-                      >
-                        <Trash2 className="h-4 w-4 stroke-[1.75]" />
-                      </Button>
-                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs rounded-lg"
+                      onClick={() => openEdit(u)}
+                    >
+                      <Pencil className="h-3.5 w-3.5 mr-1" />
+                      Editar
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))
@@ -1558,48 +1536,46 @@ function ContactsTab() {
         </Table>
       </div>
 
-      <Dialog open={open} onOpenChange={(o) => !o && setOpen(false)}>
+      {/* Modal de edição de usuário */}
+      <Dialog open={editOpen} onOpenChange={(o) => !o && setEditOpen(false)}>
         <DialogContent className="max-w-md bg-white rounded-2xl">
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-slate-900">
-              {editing ? 'Editar Contato' : 'Novo Contato'}
-            </DialogTitle>
+            <DialogTitle className="text-lg font-bold text-slate-900">Editar Usuário</DialogTitle>
           </DialogHeader>
-          <form onSubmit={save} className="space-y-4 pt-2">
+          <form onSubmit={saveEdit} className="space-y-4 pt-2">
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-700">Nome *</Label>
+              <Label className="text-xs font-semibold text-slate-700">Nome</Label>
               <Input
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                required
-                autoFocus
-                className="h-10 text-xs sm:text-sm rounded-xl"
+                value={editingUser?.name || ''}
+                disabled
+                className="h-10 text-xs sm:text-sm rounded-xl bg-slate-50"
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">E-mail</Label>
-                <Input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  className="h-10 text-xs sm:text-sm rounded-xl"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">Telefone</Label>
-                <Input
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  className="h-10 text-xs sm:text-sm rounded-xl"
-                />
-              </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-700">E-mail</Label>
+              <Input
+                value={editingUser?.email || ''}
+                disabled
+                className="h-10 text-xs sm:text-sm rounded-xl bg-slate-50"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-700">Perfil *</Label>
+              <Select value={formRole} onValueChange={(v) => setFormRole(v as 'user' | 'admin')}>
+                <SelectTrigger className="h-10 rounded-xl text-xs">
+                  <SelectValue placeholder="Selecione o perfil" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">admin</SelectItem>
+                  <SelectItem value="user">user</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-700">Empresa</Label>
               <Select
-                value={form.company}
-                onValueChange={(v) => setForm({ ...form, company: v === '__none' ? '' : v })}
+                value={formCompany || '__none'}
+                onValueChange={(v) => setFormCompany(v === '__none' ? '' : v)}
               >
                 <SelectTrigger className="h-10 rounded-xl text-xs">
                   <SelectValue placeholder="Selecione a empresa" />
@@ -1614,11 +1590,30 @@ function ContactsTab() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-700">Setor</Label>
+              <Select
+                value={formSector || '__none'}
+                onValueChange={(v) => setFormSector(v === '__none' ? '' : v)}
+              >
+                <SelectTrigger className="h-10 rounded-xl text-xs">
+                  <SelectValue placeholder="Selecione o setor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">— Sem setor —</SelectItem>
+                  {sectors.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <DialogFooter>
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setOpen(false)}
+                onClick={() => setEditOpen(false)}
                 disabled={saving}
                 className="rounded-xl text-xs"
               >

@@ -63,10 +63,18 @@ export interface TicketMessage extends RecordModel {
 
 // ---------- New collections ----------
 
+export type KnowledgeVisibility = 'GERAL' | 'Por empresa'
+
 export interface KnowledgeArticle extends RecordModel {
   title: string
   content: string
   category: string
+  visibility: KnowledgeVisibility
+  company?: string
+  attachments?: string[]
+  expand?: {
+    company?: Company
+  }
 }
 
 export interface QuickReply extends RecordModel {
@@ -91,6 +99,9 @@ export interface Subcategory extends RecordModel {
 export interface Priority extends RecordModel {
   name: string
   sla_hours?: number
+  level?: number
+  color?: string
+  active?: boolean
 }
 
 export interface Company extends RecordModel {

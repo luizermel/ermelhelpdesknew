@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-16T20:47:52.061Z",
+  "generatedAt": "2026-08-16T23:05:22.732Z",
   "collections": [
     {
       "name": "users",
@@ -192,6 +192,13 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "subcategory",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "subcategories"
         }
       ],
       "indexes": [
@@ -308,6 +315,26 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "attachments",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "visibility",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["GERAL", "Por empresa"]
+        },
+        {
+          "name": "company",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "companies"
         }
       ],
       "indexes": [
@@ -438,6 +465,24 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "level",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "color",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": ["CREATE UNIQUE INDEX idx_priorities_name ON priorities (name)"]
