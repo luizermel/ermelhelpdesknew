@@ -11,6 +11,7 @@ import InventoryItemsPage from './pages/InventoryItems'
 import InventoryLocationsPage from './pages/InventoryLocations'
 import InventoryMovementsPage from './pages/InventoryMovements'
 import MaterialRequestsPage from './pages/MaterialRequests'
+import StockEntryPage from './pages/StockEntry'
 import PublicConfirmationPage from './pages/PublicConfirmation'
 
 import Login from './pages/Index'

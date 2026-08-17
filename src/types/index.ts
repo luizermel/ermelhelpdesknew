@@ -177,6 +177,8 @@ export interface Product extends RecordModel {
   is_patrimony?: boolean
   avg_price?: number
   situacao?: boolean
+  barcode?: string
+  is_serial?: boolean
   expand?: {
     category?: ProductCategory
     subcategory?: ProductSubcategory
@@ -313,6 +315,7 @@ export interface InventoryItem extends RecordModel {
   patrimony_number?: string
   is_it_asset?: boolean
   is_patrimony?: boolean
+  barcode?: string
   assigned_user?: string
   expand?: {
     location?: InventoryLocation

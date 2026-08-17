@@ -24,6 +24,7 @@ import {
   MapPin,
   ArrowRightLeft,
   ClipboardList,
+  PackagePlus,
   Monitor,
   type LucideIcon,
 } from 'lucide-react'
@@ -90,6 +91,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Estoque',
     items: [
       { to: '/estoque/itens', defaultLabel: 'Itens e Ativos', defaultIcon: Package },
+      { to: '/estoque/entrada', defaultLabel: 'Entrada de Materiais', defaultIcon: PackagePlus },
       { to: '/estoque/localizacoes', defaultLabel: 'Localizações', defaultIcon: MapPin },
       { to: '/estoque/movimentacoes', defaultLabel: 'Movimentações', defaultIcon: ArrowRightLeft },
       { to: '/estoque/requisicoes', defaultLabel: 'Requisições', defaultIcon: ClipboardList },

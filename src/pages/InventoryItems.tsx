@@ -13,6 +13,8 @@ import {
   Trash2,
   Loader2,
   SlidersHorizontal,
+  ChevronRight,
+  ChevronDown,
 } from 'lucide-react'
 import { inventoryItemsService, inventoryLocationsService } from '@/services/api'
 import { useViewMode } from '@/hooks/use-view-mode'
@@ -89,6 +91,8 @@ export default function InventoryItemsPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null)
+  // Grupos de seriais expandidos (chave = groupKey)
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
 
   const [form, setForm] = useState<ItemForm>(EMPTY_FORM)
 
@@ -247,6 +251,62 @@ export default function InventoryItemsPage() {
     return matchesSearch && matchesType
   })
 
+  // Agrupa itens controlados por serial (Ativo) por produto+localização para exibição consolidada
+  type DisplayRow =
+    | { type: 'single'; item: InventoryItem }
+    | {
+        type: 'group'
+        groupKey: string
+        productName: string
+        locationName: string
+        items: InventoryItem[]
+      }
+
+  const displayRows: DisplayRow[] = (() => {
+    const rows: DisplayRow[] = []
+    const serialGroupMap = new Map<string, InventoryItem[]>()
+    for (const it of filteredItems) {
+      const isAsset = (it.item_type || 'Consumível') === 'Ativo'
+      if (!isAsset) {
+        rows.push({ type: 'single', item: it })
+        continue
+      }
+      const prodId = it.product || ''
+      const locId = it.location || ''
+      const groupKey = `p:${prodId || it.name}|l:${locId}`
+      const arr = serialGroupMap.get(groupKey) || []
+      arr.push(it)
+      serialGroupMap.set(groupKey, arr)
+    }
+    // Ordena grupos para manter uma ordem estável (nome do produto)
+    const sortedKeys = Array.from(serialGroupMap.keys()).sort((a, b) => {
+      const aName = serialGroupMap.get(a)![0]?.name || ''
+      const bName = serialGroupMap.get(b)![0]?.name || ''
+      return aName.localeCompare(bName)
+    })
+    for (const k of sortedKeys) {
+      const arr = serialGroupMap.get(k)!
+      const first = arr[0]
+      rows.push({
+        type: 'group',
+        groupKey: k,
+        productName: first.name,
+        locationName: first.expand?.location?.name || 'Não definida',
+        items: arr,
+      })
+    }
+    return rows
+  })()
+
+  const toggleGroup = (key: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
   // Determina o status de patrimônio para exibição
   const getPatrimonyBadge = (it: InventoryItem) => {
     const isPatrimony = it.is_patrimony || it.expand?.product?.is_patrimony
@@ -352,24 +412,253 @@ export default function InventoryItemsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredItems.map((it) => {
-                  const isAsset = (it.item_type || 'Consumível') === 'Ativo'
-                  const isLowStock = !isAsset && it.quantity <= (it.min_quantity || 0)
-                  const locName = it.expand?.location?.name || 'Não definida'
+                {displayRows.flatMap((row) => {
+                  if (row.type === 'single') {
+                    const it = row.item
+                    const isAsset = (it.item_type || 'Consumível') === 'Ativo'
+                    const isLowStock = !isAsset && it.quantity <= (it.min_quantity || 0)
+                    const locName = it.expand?.location?.name || 'Não definida'
 
-                  return (
-                    <tr key={it.id} className="hover:bg-indigo-50/30 transition-colors group">
-                      <td className="py-3 px-4">
-                        <p className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1">
-                          {it.name}
-                        </p>
-                        {it.category && (
-                          <span className="text-[11px] text-slate-400 font-medium">
-                            {it.category}
+                    return [
+                      <tr key={it.id} className="hover:bg-indigo-50/30 transition-colors group">
+                        <td className="py-3 px-4">
+                          <p className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1">
+                            {it.name}
+                          </p>
+                          {it.category && (
+                            <span className="text-[11px] text-slate-400 font-medium">
+                              {it.category}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <Badge
+                            variant="outline"
+                            className={
+                              isAsset
+                                ? 'bg-purple-50 text-purple-700 border-purple-200 font-medium text-[10px]'
+                                : 'bg-blue-50 text-blue-700 border-blue-200 font-medium text-[10px]'
+                            }
+                          >
+                            {isAsset ? 'Ativo' : 'Consumível'}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          {isAsset ? (
+                            <span className="font-mono font-bold text-slate-900">
+                              {it.serial_number || 'Sem serial'}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 whitespace-nowrap">{getPatrimonyBadge(it)}</td>
+                        <td className="py-3 px-4 whitespace-nowrap text-slate-700">
+                          <span className="inline-flex items-center gap-1.5">
+                            <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                            {locName}
                           </span>
-                        )}
+                        </td>
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          {isAsset ? (
+                            <span className="text-slate-400">—</span>
+                          ) : (
+                            <span
+                              className={`font-bold ${
+                                isLowStock ? 'text-red-600' : 'text-slate-900'
+                              }`}
+                            >
+                              {it.quantity} {it.unit || 'un'}
+                              {isLowStock && (
+                                <AlertCircle className="inline h-3 w-3 text-red-600 ml-1 shrink-0" />
+                              )}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <Badge variant="secondary" className="text-[10px]">
+                            {it.status || 'Em estoque'}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-4 whitespace-nowrap text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleOpenEdit(it)}
+                              className="h-7 w-7 text-slate-500 hover:text-indigo-600 hover:bg-slate-100"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(it)}
+                              className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>,
+                    ]
+                  }
+
+                  // Linha de grupo de seriais
+                  const expanded = expandedGroups.has(row.groupKey)
+                  return [
+                    <tr
+                      key={row.groupKey}
+                      className="hover:bg-indigo-50/30 transition-colors group cursor-pointer"
+                      onClick={() => toggleGroup(row.groupKey)}
+                    >
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-indigo-600 hover:bg-indigo-100"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              toggleGroup(row.groupKey)
+                            }}
+                          >
+                            {expanded ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <div>
+                            <p className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1">
+                              {row.productName}
+                            </p>
+                            <span className="text-[11px] text-slate-400 font-medium">
+                              {row.items.length} unidade(s) controladas por serial
+                            </span>
+                          </div>
+                        </div>
                       </td>
                       <td className="py-3 px-4 whitespace-nowrap">
+                        <Badge
+                          variant="outline"
+                          className="bg-purple-50 text-purple-700 border-purple-200 font-medium text-[10px]"
+                        >
+                          Ativo (Serial)
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-4 whitespace-nowrap text-slate-500 text-[11px]">
+                        {row.items.length} seriais
+                      </td>
+                      <td className="py-3 px-4 whitespace-nowrap text-slate-400">—</td>
+                      <td className="py-3 px-4 whitespace-nowrap text-slate-700">
+                        <span className="inline-flex items-center gap-1.5">
+                          <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                          {row.locationName}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <span className="font-bold text-slate-900">{row.items.length} un</span>
+                      </td>
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <Badge variant="secondary" className="text-[10px]">
+                          Em estoque
+                        </Badge>
+                      </td>
+                      <td
+                        className="py-3 px-4 whitespace-nowrap text-right"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <span className="text-[10px] text-slate-400">
+                          Clique em [+] para detalhar
+                        </span>
+                      </td>
+                    </tr>,
+                    ...(expanded
+                      ? row.items.map((it) => (
+                          <tr
+                            key={it.id}
+                            className="bg-slate-50/60 hover:bg-indigo-50/40 transition-colors group"
+                          >
+                            <td className="py-2.5 px-4 pl-12">
+                              <p className="font-medium text-slate-700 line-clamp-1">{it.name}</p>
+                              {it.category && (
+                                <span className="text-[11px] text-slate-400 font-medium">
+                                  {it.category}
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-4 whitespace-nowrap">
+                              <Badge
+                                variant="outline"
+                                className="bg-purple-50/70 text-purple-600 border-purple-200 text-[10px]"
+                              >
+                                Unidade
+                              </Badge>
+                            </td>
+                            <td className="py-2.5 px-4 whitespace-nowrap">
+                              <span className="font-mono font-bold text-slate-900">
+                                {it.serial_number || 'Sem serial'}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-4 whitespace-nowrap">
+                              {getPatrimonyBadge(it)}
+                            </td>
+                            <td className="py-2.5 px-4 whitespace-nowrap text-slate-700 text-[11px]">
+                              {it.expand?.location?.name || 'Não definida'}
+                            </td>
+                            <td className="py-2.5 px-4 whitespace-nowrap text-slate-400">1 un</td>
+                            <td className="py-2.5 px-4 whitespace-nowrap">
+                              <Badge variant="secondary" className="text-[10px]">
+                                {it.status || 'Em estoque'}
+                              </Badge>
+                            </td>
+                            <td className="py-2.5 px-4 whitespace-nowrap text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleOpenEdit(it)}
+                                  className="h-7 w-7 text-slate-500 hover:text-indigo-600 hover:bg-slate-100"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDelete(it)}
+                                  className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      : []),
+                  ]
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {displayRows.flatMap((row) => {
+            if (row.type === 'single') {
+              const it = row.item
+              const isAsset = (it.item_type || 'Consumível') === 'Ativo'
+              const isLowStock = !isAsset && it.quantity <= (it.min_quantity || 0)
+              const locName = it.expand?.location?.name || 'Não definida'
+
+              return [
+                <Card
+                  key={it.id}
+                  className="bg-white border-slate-200/80 shadow-2xs hover:border-slate-300 transition-all flex flex-col justify-between"
+                >
+                  <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-start justify-between space-y-0">
+                    <div className="space-y-1 pr-2">
+                      <div className="flex items-center gap-2">
                         <Badge
                           variant="outline"
                           className={
@@ -378,205 +667,218 @@ export default function InventoryItemsPage() {
                               : 'bg-blue-50 text-blue-700 border-blue-200 font-medium text-[10px]'
                           }
                         >
-                          {isAsset ? 'Ativo' : 'Consumível'}
+                          {isAsset ? 'Ativo (Serial)' : 'Consumível'}
                         </Badge>
-                      </td>
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        {isAsset ? (
+                        {it.category && (
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            • {it.category}
+                          </span>
+                        )}
+                      </div>
+                      <CardTitle className="text-base font-bold text-slate-900 line-clamp-1">
+                        {it.name}
+                      </CardTitle>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleOpenEdit(it)}
+                        className="h-7 w-7 text-slate-500 hover:text-indigo-600 hover:bg-slate-100"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(it)}
+                        className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-3 pb-4 space-y-3 flex-1 text-xs">
+                    {isAsset ? (
+                      <div className="space-y-1.5 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span className="flex items-center gap-1 font-medium text-slate-500">
+                            <Hash className="h-3.5 w-3.5 text-indigo-500" /> N° de Série:
+                          </span>
                           <span className="font-mono font-bold text-slate-900">
                             {it.serial_number || 'Sem serial'}
                           </span>
-                        ) : (
-                          <span className="text-slate-400">—</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 whitespace-nowrap">{getPatrimonyBadge(it)}</td>
-                      <td className="py-3 px-4 whitespace-nowrap text-slate-700">
-                        <span className="inline-flex items-center gap-1.5">
-                          <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                          {locName}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        {isAsset ? (
-                          <span className="text-slate-400">—</span>
-                        ) : (
+                        </div>
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span className="flex items-center gap-1 font-medium text-slate-500">
+                            <Tag className="h-3.5 w-3.5 text-indigo-500" /> Status:
+                          </span>
+                          <Badge variant="secondary" className="text-[10px]">
+                            {it.status || 'Em estoque'}
+                          </Badge>
+                        </div>
+                        {(it.is_patrimony || it.expand?.product?.is_patrimony) &&
+                        !it.patrimony_number ? (
+                          <div className="flex items-center justify-between pt-1 border-t border-slate-200/70">
+                            <span className="font-medium text-slate-500">Patrimônio:</span>
+                            <Badge className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px]">
+                              Aguardando lançamento
+                            </Badge>
+                          </div>
+                        ) : it.patrimony_number ? (
+                          <div className="flex items-center justify-between pt-1 border-t border-slate-200/70">
+                            <span className="font-medium text-slate-500">Nº Patrimônio:</span>
+                            <span className="font-mono font-bold text-slate-900">
+                              {it.patrimony_number}
+                            </span>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span className="font-medium text-slate-500">Quantidade em estoque:</span>
                           <span
-                            className={`font-bold ${
+                            className={`font-bold text-sm ${
                               isLowStock ? 'text-red-600' : 'text-slate-900'
                             }`}
                           >
                             {it.quantity} {it.unit || 'un'}
-                            {isLowStock && (
-                              <AlertCircle className="inline h-3 w-3 text-red-600 ml-1 shrink-0" />
-                            )}
                           </span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        <Badge variant="secondary" className="text-[10px]">
-                          {it.status || 'Em estoque'}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-4 whitespace-nowrap text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenEdit(it)}
-                            className="h-7 w-7 text-slate-500 hover:text-indigo-600 hover:bg-slate-100"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(it)}
-                            className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
                         </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredItems.map((it) => {
-            const isAsset = (it.item_type || 'Consumível') === 'Ativo'
-            const isLowStock = !isAsset && it.quantity <= (it.min_quantity || 0)
-            const locName = it.expand?.location?.name || 'Não definida'
+                        <div className="flex items-center justify-between text-slate-400 text-[11px]">
+                          <span>Mínimo recomendado:</span>
+                          <span>
+                            {it.min_quantity || 0} {it.unit || 'un'}
+                          </span>
+                        </div>
+                        {isLowStock && (
+                          <p className="text-[11px] text-red-600 font-medium flex items-center gap-1 pt-1 border-t border-red-100">
+                            <AlertCircle className="h-3 w-3 shrink-0" />
+                            Estoque abaixo do mínimo!
+                          </p>
+                        )}
+                      </div>
+                    )}
 
-            return (
+                    <div className="flex items-center gap-1.5 text-slate-500 pt-1">
+                      <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                      <span className="truncate">
+                        Depósito/Local: <strong className="text-slate-800">{locName}</strong>
+                      </span>
+                    </div>
+
+                    {it.description && (
+                      <p className="text-slate-500 text-[11px] line-clamp-2 italic pt-1 border-t border-slate-100">
+                        "{it.description}"
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>,
+              ]
+            }
+
+            // Card de grupo de seriais
+            const expanded = expandedGroups.has(row.groupKey)
+            return [
               <Card
-                key={it.id}
-                className="bg-white border-slate-200/80 shadow-2xs hover:border-slate-300 transition-all flex flex-col justify-between"
+                key={row.groupKey}
+                className="bg-white border-purple-200 shadow-2xs hover:border-purple-300 transition-all flex flex-col justify-between"
               >
                 <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-start justify-between space-y-0">
-                  <div className="space-y-1 pr-2">
+                  <div className="space-y-1 pr-2 flex-1">
                     <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => toggleGroup(row.groupKey)}
+                        className="h-7 w-7 text-indigo-600 hover:bg-indigo-100"
+                        title={expanded ? 'Recolher seriais' : 'Expandir seriais'}
+                      >
+                        {expanded ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </Button>
                       <Badge
                         variant="outline"
-                        className={
-                          isAsset
-                            ? 'bg-purple-50 text-purple-700 border-purple-200 font-medium text-[10px]'
-                            : 'bg-blue-50 text-blue-700 border-blue-200 font-medium text-[10px]'
-                        }
+                        className="bg-purple-50 text-purple-700 border-purple-200 font-medium text-[10px]"
                       >
-                        {isAsset ? 'Ativo (Serial)' : 'Consumível'}
+                        Ativo (Serial) — Grupo
                       </Badge>
-                      {it.category && (
-                        <span className="text-[10px] text-slate-400 font-medium">
-                          • {it.category}
-                        </span>
-                      )}
                     </div>
-                    <CardTitle className="text-base font-bold text-slate-900 line-clamp-1">
-                      {it.name}
+                    <CardTitle className="text-base font-bold text-slate-900 line-clamp-1 pl-9">
+                      {row.productName}
                     </CardTitle>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleOpenEdit(it)}
-                      className="h-7 w-7 text-slate-500 hover:text-indigo-600 hover:bg-slate-100"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(it)}
-                      className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-3 pb-4 space-y-3 flex-1 text-xs">
-                  {isAsset ? (
-                    <div className="space-y-1.5 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                      <div className="flex items-center justify-between text-slate-600">
-                        <span className="flex items-center gap-1 font-medium text-slate-500">
-                          <Hash className="h-3.5 w-3.5 text-indigo-500" /> N° de Série:
-                        </span>
-                        <span className="font-mono font-bold text-slate-900">
-                          {it.serial_number || 'Sem serial'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-slate-600">
-                        <span className="flex items-center gap-1 font-medium text-slate-500">
-                          <Tag className="h-3.5 w-3.5 text-indigo-500" /> Status:
-                        </span>
-                        <Badge variant="secondary" className="text-[10px]">
-                          {it.status || 'Em estoque'}
-                        </Badge>
-                      </div>
-                      {(it.is_patrimony || it.expand?.product?.is_patrimony) &&
-                      !it.patrimony_number ? (
-                        <div className="flex items-center justify-between pt-1 border-t border-slate-200/70">
-                          <span className="font-medium text-slate-500">Patrimônio:</span>
-                          <Badge className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px]">
-                            Aguardando lançamento
-                          </Badge>
-                        </div>
-                      ) : it.patrimony_number ? (
-                        <div className="flex items-center justify-between pt-1 border-t border-slate-200/70">
-                          <span className="font-medium text-slate-500">Nº Patrimônio:</span>
-                          <span className="font-mono font-bold text-slate-900">
-                            {it.patrimony_number}
-                          </span>
-                        </div>
-                      ) : null}
+                  <div className="space-y-1.5 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                    <div className="flex items-center justify-between text-slate-600">
+                      <span className="font-medium text-slate-500">Quantidade total:</span>
+                      <span className="font-bold text-sm text-slate-900">
+                        {row.items.length} un
+                      </span>
                     </div>
-                  ) : (
-                    <div className="space-y-1.5 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                      <div className="flex items-center justify-between text-slate-600">
-                        <span className="font-medium text-slate-500">Quantidade em estoque:</span>
-                        <span
-                          className={`font-bold text-sm ${
-                            isLowStock ? 'text-red-600' : 'text-slate-900'
-                          }`}
-                        >
-                          {it.quantity} {it.unit || 'un'}
-                        </span>
+                    <div className="flex items-center justify-between text-slate-400 text-[11px]">
+                      <span>Controlados por serial:</span>
+                      <span>{row.items.length} unidade(s)</span>
+                    </div>
+                  </div>
+
+                  {expanded && (
+                    <div className="space-y-1.5 border-t border-slate-100 pt-2">
+                      <p className="text-[11px] font-semibold text-slate-600 flex items-center gap-1">
+                        <Hash className="h-3.5 w-3.5 text-indigo-500" /> Seriais individuais:
+                      </p>
+                      <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                        {row.items.map((it) => (
+                          <div
+                            key={it.id}
+                            className="flex items-center justify-between gap-2 bg-slate-50/70 rounded-md px-2 py-1.5"
+                          >
+                            <div className="min-w-0">
+                              <span className="font-mono font-bold text-slate-900 text-[11px] block truncate">
+                                {it.serial_number || 'Sem serial'}
+                              </span>
+                              <Badge variant="secondary" className="text-[9px] mt-0.5">
+                                {it.status || 'Em estoque'}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleOpenEdit(it)}
+                                className="h-6 w-6 text-slate-500 hover:text-indigo-600 hover:bg-slate-100"
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDelete(it)}
+                                className="h-6 w-6 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                      <div className="flex items-center justify-between text-slate-400 text-[11px]">
-                        <span>Mínimo recomendado:</span>
-                        <span>
-                          {it.min_quantity || 0} {it.unit || 'un'}
-                        </span>
-                      </div>
-                      {isLowStock && (
-                        <p className="text-[11px] text-red-600 font-medium flex items-center gap-1 pt-1 border-t border-red-100">
-                          <AlertCircle className="h-3 w-3 shrink-0" />
-                          Estoque abaixo do mínimo!
-                        </p>
-                      )}
                     </div>
                   )}
 
                   <div className="flex items-center gap-1.5 text-slate-500 pt-1">
                     <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                     <span className="truncate">
-                      Depósito/Local: <strong className="text-slate-800">{locName}</strong>
+                      Depósito/Local: <strong className="text-slate-800">{row.locationName}</strong>
                     </span>
                   </div>
-
-                  {it.description && (
-                    <p className="text-slate-500 text-[11px] line-clamp-2 italic pt-1 border-t border-slate-100">
-                      "{it.description}"
-                    </p>
-                  )}
                 </CardContent>
-              </Card>
-            )
+              </Card>,
+            ]
           })}
         </div>
       )}

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-17T04:03:39.162Z",
+  "generatedAt": "2026-08-17T21:23:01.111Z",
   "collections": [
     {
       "name": "users",
@@ -1881,6 +1881,18 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "barcode",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_serial",
+          "type": "bool",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": ["CREATE INDEX idx_products_name ON products (name)"]

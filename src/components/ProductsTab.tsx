@@ -39,8 +39,10 @@ interface FormState {
   manufacturer: string
   supplier: string
   sale_price: string
+  barcode: string
   is_it_asset: boolean
   is_patrimony: boolean
+  is_serial: boolean
 }
 
 const EMPTY_FORM: FormState = {
@@ -50,8 +52,10 @@ const EMPTY_FORM: FormState = {
   manufacturer: '',
   supplier: '',
   sale_price: '',
+  barcode: '',
   is_it_asset: false,
   is_patrimony: false,
+  is_serial: false,
 }
 
 export function ProductsTab() {
@@ -167,8 +171,10 @@ export function ProductsTab() {
       manufacturer: p.manufacturer || '',
       supplier: p.supplier || '',
       sale_price: p.sale_price != null ? String(p.sale_price) : '',
+      barcode: p.barcode || '',
       is_it_asset: !!p.is_it_asset,
       is_patrimony: !!p.is_patrimony,
+      is_serial: !!p.is_serial,
     })
     setDialogOpen(true)
   }
@@ -188,8 +194,10 @@ export function ProductsTab() {
         manufacturer: form.manufacturer || undefined,
         supplier: form.supplier || undefined,
         sale_price: form.sale_price ? parseFloat(form.sale_price) : undefined,
+        barcode: form.barcode.trim() || undefined,
         is_it_asset: form.is_it_asset,
         is_patrimony: form.is_patrimony,
+        is_serial: form.is_serial,
       }
       if (editing) {
         await productsService.update(editing.id, payload)
@@ -493,7 +501,17 @@ export function ProductsTab() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-slate-50 border border-slate-100">
+            <div className="space-y-1">
+              <label className="font-semibold text-slate-700">Código de Barras (opcional)</label>
+              <Input
+                placeholder="Ex: 7891234567890"
+                value={form.barcode}
+                onChange={(e) => setForm({ ...form, barcode: e.target.value })}
+                className="h-9 font-mono"
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 p-3 rounded-lg bg-slate-50 border border-slate-100">
               <label className="flex items-center justify-between gap-2 cursor-pointer">
                 <span className="font-semibold text-slate-700">Ativo de TI</span>
                 <Switch
@@ -506,6 +524,13 @@ export function ProductsTab() {
                 <Switch
                   checked={form.is_patrimony}
                   onCheckedChange={(v) => setForm({ ...form, is_patrimony: v })}
+                />
+              </label>
+              <label className="flex items-center justify-between gap-2 cursor-pointer">
+                <span className="font-semibold text-slate-700">Controla Serial</span>
+                <Switch
+                  checked={form.is_serial}
+                  onCheckedChange={(v) => setForm({ ...form, is_serial: v })}
                 />
               </label>
             </div>
