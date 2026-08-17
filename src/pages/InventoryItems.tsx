@@ -15,6 +15,7 @@ import {
   SlidersHorizontal,
   ChevronRight,
   ChevronDown,
+  Info,
 } from 'lucide-react'
 import { inventoryItemsService, inventoryLocationsService } from '@/services/api'
 import { useViewMode } from '@/hooks/use-view-mode'
@@ -66,7 +67,9 @@ const EMPTY_FORM: ItemForm = {
   item_type: 'Consumível',
   serial_number: '',
   category: '',
-  quantity: 1,
+  // A quantidade NÃO é editada manualmente no formulário.
+  // Consumíveis iniciam com 0; Ativos são sempre 1 (forçado no save).
+  quantity: 0,
   min_quantity: 0,
   unit: 'un',
   location: '',
@@ -96,9 +99,6 @@ export default function InventoryItemsPage() {
 
   const [form, setForm] = useState<ItemForm>(EMPTY_FORM)
 
-  // Números de série adicionais (quando Ativo + quantidade > 1)
-  const [serials, setSerials] = useState<string[]>([])
-
   const loadData = async () => {
     setLoading(true)
     try {
@@ -120,12 +120,10 @@ export default function InventoryItemsPage() {
     loadData()
   }, [])
 
-  const resetSerials = () => setSerials([])
-
   const handleOpenCreate = () => {
     setEditingItem(null)
-    setForm({ ...EMPTY_FORM, location: locations[0]?.id || '' })
-    resetSerials()
+    // Consumível inicia com quantidade 0; Ativo sempre 1 (definido no save).
+    setForm({ ...EMPTY_FORM, quantity: 0, location: locations[0]?.id || '' })
     setDialogOpen(true)
   }
 
@@ -136,7 +134,9 @@ export default function InventoryItemsPage() {
       item_type: (it.item_type as ItemType) || 'Consumível',
       serial_number: it.serial_number || '',
       category: it.category || '',
-      quantity: it.quantity ?? 1,
+      // A quantidade não é mais editável no formulário.
+      // Ativos são SEMPRE 1; Consumíveis mantêm o saldo controlado por movimentações.
+      quantity: (it.item_type as ItemType) === 'Ativo' ? 1 : (it.quantity ?? 0),
       min_quantity: it.min_quantity ?? 0,
       unit: it.unit || 'un',
       location: it.location || '',
@@ -146,27 +146,7 @@ export default function InventoryItemsPage() {
       is_it_asset: !!it.is_it_asset,
       is_patrimony: !!it.is_patrimony,
     })
-    resetSerials()
     setDialogOpen(true)
-  }
-
-  // Garante que o array de seriais tenha o tamanho da quantidade informada
-  useEffect(() => {
-    if (form.item_type === 'Ativo' && form.quantity > 1) {
-      const target = form.quantity
-      setSerials((prev) => {
-        if (prev.length === target) return prev
-        if (prev.length > target) return prev.slice(0, target)
-        return [...prev, ...Array(target - prev.length).fill('')]
-      })
-    } else if (serials.length !== 0) {
-      setSerials([])
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.item_type, form.quantity])
-
-  const updateSerial = (index: number, value: string) => {
-    setSerials((prev) => prev.map((s, i) => (i === index ? value : s)))
   }
 
   const handleSave = async (e: React.FormEvent) => {
@@ -176,47 +156,31 @@ export default function InventoryItemsPage() {
       return
     }
 
+    // Ativos são sempre quantidade 1 (um registro por serial).
+    // Consumíveis têm quantidade controlada por movimentações — inicia em 0 ao criar.
+    const payload = { ...form }
     if (form.item_type === 'Ativo') {
-      // Serial principal obrigatório
+      payload.quantity = 1
       if (!form.serial_number.trim()) {
         toast.error('Número de Série é obrigatório para Ativos.')
         return
       }
-      // Quando quantidade > 1, todos os seriais adicionais devem ser preenchidos
-      if (form.quantity > 1) {
-        const empty = serials.findIndex((s) => !s.trim())
-        if (empty !== -1) {
-          toast.error(`Preencha o número de série do item ${empty + 1}.`)
-          return
-        }
-        const allSerials = [form.serial_number.trim(), ...serials.map((s) => s.trim())]
-        const duplicates = new Set(allSerials.filter((s, i) => allSerials.indexOf(s) !== i))
-        if (duplicates.size > 0) {
-          toast.error('Existem números de série duplicados.')
-          return
-        }
-      }
+    } else if (!editingItem) {
+      payload.quantity = 0
     }
 
     setSaving(true)
     try {
       if (editingItem) {
-        await inventoryItemsService.update(editingItem.id, form)
+        // Ao editar, não altera a quantidade (controlada por movimentações).
+        const { quantity, ...updatePayload } = payload
+        await inventoryItemsService.update(editingItem.id, updatePayload)
         toast.success('Item atualizado com sucesso!')
         setDialogOpen(false)
         loadData()
       } else {
-        if (form.item_type === 'Ativo' && form.quantity > 1) {
-          // Cria um item por número de série
-          const allSerials = [form.serial_number.trim(), ...serials.map((s) => s.trim())]
-          for (const sn of allSerials) {
-            await inventoryItemsService.create({ ...form, serial_number: sn, quantity: 1 })
-          }
-          toast.success(`${allSerials.length} ativos cadastrados com sucesso!`)
-        } else {
-          await inventoryItemsService.create(form)
-          toast.success('Item cadastrado com sucesso!')
-        }
+        await inventoryItemsService.create(payload)
+        toast.success('Item cadastrado com sucesso!')
         setDialogOpen(false)
         loadData()
       }
@@ -322,8 +286,6 @@ export default function InventoryItemsPage() {
     }
     return <span className="text-slate-400">—</span>
   }
-
-  const showSerials = form.item_type === 'Ativo' && form.quantity > 1
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -935,42 +897,28 @@ export default function InventoryItemsPage() {
 
             {form.item_type === 'Ativo' ? (
               <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="font-semibold text-slate-700">Quantidade</label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={form.quantity}
-                      onChange={(e) =>
-                        setForm({ ...form, quantity: Math.max(1, parseInt(e.target.value) || 1) })
-                      }
-                      className="h-9"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="font-semibold text-slate-700">Status do Ativo</label>
-                    <Select
-                      value={form.status}
-                      onValueChange={(v) => setForm({ ...form, status: v as ItemStatus })}
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Em estoque">Em estoque</SelectItem>
-                        <SelectItem value="Em uso">Em uso</SelectItem>
-                        <SelectItem value="Em manutenção">Em manutenção</SelectItem>
-                        <SelectItem value="Desativado">Desativado</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                {/* Ativos são sempre quantidade 1 — um registro por serial.
+                    A entrada múltipla de seriais é feita pela tela /estoque/entrada. */}
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-700">Status do Ativo</label>
+                  <Select
+                    value={form.status}
+                    onValueChange={(v) => setForm({ ...form, status: v as ItemStatus })}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Em estoque">Em estoque</SelectItem>
+                      <SelectItem value="Em uso">Em uso</SelectItem>
+                      <SelectItem value="Em manutenção">Em manutenção</SelectItem>
+                      <SelectItem value="Desativado">Desativado</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-semibold text-slate-700">
-                    N° de Série (Serial) {showSerials ? 'do item 1' : '*'}
-                  </label>
+                  <label className="font-semibold text-slate-700">N° de Série (Serial) *</label>
                   <Input
                     placeholder="Ex: SN-98127391"
                     value={form.serial_number}
@@ -980,46 +928,17 @@ export default function InventoryItemsPage() {
                   />
                 </div>
 
-                {showSerials && (
-                  <div className="space-y-2 p-3 rounded-lg border border-indigo-100 bg-indigo-50/40">
-                    <p className="text-[11px] font-semibold text-indigo-700 flex items-center gap-1">
-                      <Hash className="h-3.5 w-3.5" />
-                      Informe os números de série dos demais {form.quantity} ativos:
-                    </p>
-                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                      {serials.map((sn, idx) => (
-                        <div key={idx} className="space-y-1">
-                          <label className="font-medium text-slate-600 text-[11px]">
-                            Item {idx + 2} — N° de Série *
-                          </label>
-                          <Input
-                            placeholder={`Ex: SN-${1000 + idx}`}
-                            value={sn}
-                            onChange={(e) => updateSerial(idx, e.target.value)}
-                            required
-                            className="h-9 font-mono"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                    <p className="text-[10px] text-slate-500">
-                      Será criado um registro de ativo para cada número de série informado.
-                    </p>
-                  </div>
-                )}
+                <div className="flex items-start gap-2 p-2.5 rounded-lg border border-indigo-100 bg-indigo-50/40">
+                  <Info className="h-3.5 w-3.5 text-indigo-600 shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-slate-600">
+                    Cada ativo é um item individual com quantidade fixa igual a 1. Para cadastrar
+                    múltiplos seriais do mesmo produto, use a tela de{' '}
+                    <strong>Entrada de Materiais</strong>.
+                  </p>
+                </div>
               </>
             ) : (
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <label className="font-semibold text-slate-700">Quantidade Atual</label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={form.quantity}
-                    onChange={(e) => setForm({ ...form, quantity: parseInt(e.target.value) || 0 })}
-                    className="h-9"
-                  />
-                </div>
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="font-semibold text-slate-700">Estoque Mínimo</label>
                   <Input

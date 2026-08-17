@@ -12,6 +12,7 @@ import InventoryLocationsPage from './pages/InventoryLocations'
 import InventoryMovementsPage from './pages/InventoryMovements'
 import MaterialRequestsPage from './pages/MaterialRequests'
 import StockEntryPage from './pages/StockEntry'
+import StockBalancePage from './pages/StockBalance'
 import PublicConfirmationPage from './pages/PublicConfirmation'
 
 import Login from './pages/Index'
@@ -85,6 +86,8 @@ const App = () => (
             <Route path="/estoque/itens" element={<InventoryItemsPage />} />
             <Route path="/estoque/localizacoes" element={<InventoryLocationsPage />} />
             <Route path="/estoque/movimentacoes" element={<InventoryMovementsPage />} />
+            <Route path="/estoque/entrada" element={<StockEntryPage />} />
+            <Route path="/estoque/saldo" element={<StockBalancePage />} />
             <Route path="/estoque/requisicoes" element={<MaterialRequestsPage />} />
 
             {/* Atendimento */}

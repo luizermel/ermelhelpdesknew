@@ -92,6 +92,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/estoque/itens', defaultLabel: 'Itens e Ativos', defaultIcon: Package },
       { to: '/estoque/entrada', defaultLabel: 'Entrada de Materiais', defaultIcon: PackagePlus },
+      { to: '/estoque/saldo', defaultLabel: 'Saldo do Estoque', defaultIcon: BarChart3 },
       { to: '/estoque/localizacoes', defaultLabel: 'Localizações', defaultIcon: MapPin },
       { to: '/estoque/movimentacoes', defaultLabel: 'Movimentações', defaultIcon: ArrowRightLeft },
       { to: '/estoque/requisicoes', defaultLabel: 'Requisições', defaultIcon: ClipboardList },
