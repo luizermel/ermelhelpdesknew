@@ -15,6 +15,11 @@ import type {
   MaterialRequest,
   KnowledgeArticle,
   Priority,
+  Product,
+  ProductCategory,
+  ProductSubcategory,
+  Manufacturer,
+  Supplier,
   QuickReply,
   Sector,
   SystemSettings,
@@ -820,5 +825,164 @@ export const sectorsCrudService = {
   async remove(id: string): Promise<void> {
     await pb.collection('sectors').delete(id)
     await auditService.log('delete', 'sector', id, 'Setor removido')
+  },
+}
+
+// =========================================================
+// Product categories (CRUD)
+// =========================================================
+export const productCategoriesService = {
+  async getAll(): Promise<ProductCategory[]> {
+    return await pb.collection('product_categories').getFullList<ProductCategory>({ sort: 'name' })
+  },
+  async create(data: { name: string }): Promise<ProductCategory> {
+    const r = await pb.collection('product_categories').create<ProductCategory>(data)
+    await auditService.log(
+      'create',
+      'product_category',
+      r.id,
+      `Categoria de produto criada: ${data.name}`,
+    )
+    return r
+  },
+  async update(id: string, data: { name: string }): Promise<ProductCategory> {
+    const r = await pb.collection('product_categories').update<ProductCategory>(id, data)
+    await auditService.log(
+      'update',
+      'product_category',
+      id,
+      `Categoria de produto atualizada: ${data.name}`,
+    )
+    return r
+  },
+  async remove(id: string): Promise<void> {
+    await pb.collection('product_categories').delete(id)
+    await auditService.log('delete', 'product_category', id, 'Categoria de produto removida')
+  },
+}
+
+// =========================================================
+// Product subcategories (CRUD) — vinculadas a categorias de produto
+// =========================================================
+export const productSubcategoriesService = {
+  async getAll(): Promise<ProductSubcategory[]> {
+    return await pb
+      .collection('product_subcategories')
+      .getFullList<ProductSubcategory>({ sort: 'name', expand: 'category' })
+  },
+  async create(data: { name: string; category?: string }): Promise<ProductSubcategory> {
+    const r = await pb.collection('product_subcategories').create<ProductSubcategory>(data, {
+      expand: 'category',
+    })
+    await auditService.log(
+      'create',
+      'product_subcategory',
+      r.id,
+      `Subcategoria de produto criada: ${data.name}`,
+    )
+    return r
+  },
+  async update(id: string, data: { name: string; category?: string }): Promise<ProductSubcategory> {
+    const r = await pb
+      .collection('product_subcategories')
+      .update<ProductSubcategory>(id, data, { expand: 'category' })
+    await auditService.log(
+      'update',
+      'product_subcategory',
+      id,
+      `Subcategoria de produto atualizada: ${data.name}`,
+    )
+    return r
+  },
+  async remove(id: string): Promise<void> {
+    await pb.collection('product_subcategories').delete(id)
+    await auditService.log('delete', 'product_subcategory', id, 'Subcategoria de produto removida')
+  },
+}
+
+// =========================================================
+// Manufacturers (Fabricantes) — CRUD
+// =========================================================
+export const manufacturersService = {
+  async getAll(): Promise<Manufacturer[]> {
+    return await pb.collection('manufacturers').getFullList<Manufacturer>({ sort: 'name' })
+  },
+  async create(data: Partial<Manufacturer>): Promise<Manufacturer> {
+    const r = await pb.collection('manufacturers').create<Manufacturer>(data)
+    await auditService.log('create', 'manufacturer', r.id, `Fabricante criado: ${data.name}`)
+    return r
+  },
+  async update(id: string, data: Partial<Manufacturer>): Promise<Manufacturer> {
+    const r = await pb.collection('manufacturers').update<Manufacturer>(id, data)
+    await auditService.log(
+      'update',
+      'manufacturer',
+      id,
+      `Fabricante atualizado: ${data.name || id}`,
+    )
+    return r
+  },
+  async remove(id: string): Promise<void> {
+    await pb.collection('manufacturers').delete(id)
+    await auditService.log('delete', 'manufacturer', id, 'Fabricante removido')
+  },
+}
+
+// =========================================================
+// Suppliers (Fornecedores) — CRUD
+// =========================================================
+export const suppliersService = {
+  async getAll(): Promise<Supplier[]> {
+    return await pb.collection('suppliers').getFullList<Supplier>({ sort: 'name' })
+  },
+  async create(data: Partial<Supplier>): Promise<Supplier> {
+    const r = await pb.collection('suppliers').create<Supplier>(data)
+    await auditService.log('create', 'supplier', r.id, `Fornecedor criado: ${data.name}`)
+    return r
+  },
+  async update(id: string, data: Partial<Supplier>): Promise<Supplier> {
+    const r = await pb.collection('suppliers').update<Supplier>(id, data)
+    await auditService.log('update', 'supplier', id, `Fornecedor atualizado: ${data.name || id}`)
+    return r
+  },
+  async remove(id: string): Promise<void> {
+    await pb.collection('suppliers').delete(id)
+    await auditService.log('delete', 'supplier', id, 'Fornecedor removido')
+  },
+}
+
+// =========================================================
+// Products (Produtos) — CRUD
+// =========================================================
+export const productsService = {
+  async getAll(): Promise<Product[]> {
+    return await pb
+      .collection('products')
+      .getFullList<Product>({ sort: 'name', expand: 'category,subcategory,manufacturer,supplier' })
+  },
+  async getItAssets(): Promise<Product[]> {
+    return await pb.collection('products').getFullList<Product>({
+      sort: 'name',
+      filter: 'is_it_asset = true',
+      expand: 'category,subcategory,manufacturer,supplier',
+    })
+  },
+  async create(data: Partial<Product>): Promise<Product> {
+    const r = await pb
+      .collection('products')
+      .create<Product>(data, { expand: 'category,subcategory,manufacturer,supplier' })
+    await auditService.log('create', 'product', r.id, `Produto criado: ${data.name}`)
+    return r
+  },
+  async update(id: string, data: Partial<Product>): Promise<Product> {
+    const r = await pb
+      .collection('products')
+      .update<Product>(id, data, { expand: 'category,subcategory,manufacturer,supplier' })
+    await auditService.log('update', 'product', id, `Produto atualizado: ${data.name || id}`)
+    return r
+  },
+  async remove(id: string): Promise<void> {
+    await pb.collection('products').delete(id)
+    await auditService.log('delete', 'product', id, 'Produto removido')
   },
 }

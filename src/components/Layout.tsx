@@ -24,6 +24,7 @@ import {
   MapPin,
   ArrowRightLeft,
   ClipboardList,
+  Monitor,
   type LucideIcon,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
@@ -82,6 +83,7 @@ const NAV_GROUPS: NavGroup[] = [
         adminOnly: true,
       },
       { to: '/respostas-rapidas', defaultLabel: 'Respostas Rápidas', defaultIcon: Zap },
+      { to: '/ativos-ti', defaultLabel: 'Ativos de TI', defaultIcon: Monitor },
     ],
   },
   {

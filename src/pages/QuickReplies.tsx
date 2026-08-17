@@ -3,6 +3,8 @@ import { Zap, Plus, Pencil, Trash2, Copy, Loader2, Search, Tag } from 'lucide-re
 import { useAuth } from '@/hooks/use-auth'
 import { quickRepliesService } from '@/services/api'
 import useRealtime from '@/hooks/use-realtime'
+import { useViewMode } from '@/hooks/use-view-mode'
+import { ViewModeToggle } from '@/components/ViewModeToggle'
 import type { QuickReply } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -34,6 +36,9 @@ export default function QuickReplies() {
   const [formTitle, setFormTitle] = useState('')
   const [formContent, setFormContent] = useState('')
   const [formCategory, setFormCategory] = useState('')
+
+  // View mode state (persisted em localStorage) — padrão Lista
+  const { viewMode, toggleViewMode } = useViewMode('quick-replies-view-mode')
 
   const fetch = useCallback(async () => {
     try {
@@ -153,13 +158,16 @@ export default function QuickReplies() {
             Templates prontos para copiar e acelerar o atendimento dos chamados
           </p>
         </div>
-        <Button
-          onClick={openCreate}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          Nova Resposta
-        </Button>
+        <div className="flex items-center gap-2">
+          <ViewModeToggle viewMode={viewMode} onToggle={toggleViewMode} />
+          <Button
+            onClick={openCreate}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Nova Resposta
+          </Button>
+        </div>
       </div>
 
       {/* Search */}
@@ -173,17 +181,79 @@ export default function QuickReplies() {
         />
       </div>
 
-      {/* Grid */}
+      {/* Grid / Lista */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Skeleton key={i} className="h-40 w-full rounded-2xl" />
-          ))}
-        </div>
+        viewMode === 'list' ? (
+          <div className="space-y-2">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-14 w-full rounded-xl" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <Skeleton key={i} className="h-40 w-full rounded-2xl" />
+            ))}
+          </div>
+        )
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-slate-500">
           <Zap className="h-10 w-10 mx-auto text-slate-300 mb-2" />
           Nenhuma resposta rápida cadastrada.
+        </div>
+      ) : viewMode === 'list' ? (
+        <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-2xs">
+          {filtered.map((r) => (
+            <div
+              key={r.id}
+              className="flex items-center gap-3 px-4 py-3 border-b border-slate-100 last:border-0 hover:bg-indigo-50/30 transition-colors group cursor-pointer"
+              onClick={() => handleCopy(r)}
+            >
+              <Zap className="h-5 w-5 text-indigo-500 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-slate-900 group-hover:text-indigo-700 truncate">
+                  {r.title}
+                </p>
+                <p className="text-xs text-slate-500 truncate">{r.content}</p>
+              </div>
+              {r.category && (
+                <Badge
+                  variant="outline"
+                  className="text-[10px] bg-indigo-50 text-indigo-700 border-indigo-100 shrink-0"
+                >
+                  <Tag className="h-2.5 w-2.5 mr-1" />
+                  {r.category}
+                </Badge>
+              )}
+              <span className="text-[11px] text-indigo-600 font-medium inline-flex items-center gap-1 shrink-0">
+                <Copy className="h-3 w-3" />
+                Copiar
+              </span>
+              {canEdit(r) && (
+                <div
+                  className="flex items-center gap-1 shrink-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50"
+                    onClick={() => openEdit(r)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                    onClick={() => handleDelete(r)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

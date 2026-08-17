@@ -16,6 +16,8 @@ import {
 import { useAuth } from '@/hooks/use-auth'
 import { knowledgeService, getFileUrl } from '@/services/api'
 import useRealtime from '@/hooks/use-realtime'
+import { useViewMode } from '@/hooks/use-view-mode'
+import { ViewModeToggle } from '@/components/ViewModeToggle'
 import type { KnowledgeArticle, KnowledgeVisibility, Company } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -59,6 +61,9 @@ export default function Knowledge() {
   const [formCompany, setFormCompany] = useState('')
   const [formFiles, setFormFiles] = useState<File[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
+
+  // View mode state (persisted em localStorage) — padrão Lista
+  const { viewMode, toggleViewMode } = useViewMode('knowledge-view-mode')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -217,15 +222,18 @@ export default function Knowledge() {
             Consulte artigos e tutoriais para resolver problemas comuns rapidamente
           </p>
         </div>
-        {isAdmin && (
-          <Button
-            onClick={openCreate}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Novo Artigo
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ViewModeToggle viewMode={viewMode} onToggle={toggleViewMode} />
+          {isAdmin && (
+            <Button
+              onClick={openCreate}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Novo Artigo
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Search */}
@@ -272,17 +280,100 @@ export default function Knowledge() {
         </div>
       )}
 
-      {/* Grid */}
+      {/* Grid / Lista */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Skeleton key={i} className="h-40 w-full rounded-2xl" />
-          ))}
-        </div>
+        viewMode === 'list' ? (
+          <div className="space-y-2">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-14 w-full rounded-xl" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <Skeleton key={i} className="h-40 w-full rounded-2xl" />
+            ))}
+          </div>
+        )
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-slate-500">
           <FileText className="h-10 w-10 mx-auto text-slate-300 mb-2" />
           Nenhum artigo encontrado.
+        </div>
+      ) : viewMode === 'list' ? (
+        <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-2xs">
+          {filtered.map((a) => (
+            <div
+              key={a.id}
+              className="flex items-center gap-3 px-4 py-3 border-b border-slate-100 last:border-0 hover:bg-indigo-50/30 transition-colors cursor-pointer group"
+              onClick={() => setOpenArticle(a)}
+            >
+              <FileText className="h-5 w-5 text-indigo-500 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-slate-900 group-hover:text-indigo-700 truncate">
+                  {a.title}
+                </p>
+                <p className="text-xs text-slate-500 truncate">
+                  {a.content.replace(/<[^>]+>/g, '')}
+                </p>
+              </div>
+              <div className="flex items-center gap-1 flex-wrap justify-end shrink-0">
+                {a.visibility === 'Por empresa' ? (
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] bg-amber-50 text-amber-700 border-amber-100"
+                  >
+                    <Building2 className="h-2.5 w-2.5 mr-0.5" />
+                    Por empresa
+                  </Badge>
+                ) : (
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-100"
+                  >
+                    <Globe className="h-2.5 w-2.5 mr-0.5" />
+                    Geral
+                  </Badge>
+                )}
+                {a.category && (
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] bg-indigo-50 text-indigo-700 border-indigo-100"
+                  >
+                    {a.category}
+                  </Badge>
+                )}
+              </div>
+              <span className="text-[11px] text-slate-400 shrink-0 hidden sm:inline">
+                {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(
+                  new Date(a.created),
+                )}
+              </span>
+              {isAdmin && (
+                <div
+                  className="flex items-center gap-1 shrink-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50"
+                    onClick={() => openEdit(a)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                    onClick={() => handleDelete(a)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -30,6 +30,7 @@ import Approvals from './pages/Approvals'
 import Logs from './pages/Logs'
 import SettingsPage from './pages/Settings'
 import AssetDetail from './pages/AssetDetail'
+import ITAssetsPage from './pages/ITAssets'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -89,6 +90,7 @@ const App = () => (
             <Route path="/conhecimento" element={<Knowledge />} />
             <Route path="/respostas-rapidas" element={<QuickReplies />} />
             <Route path="/aprovacoes" element={<Approvals />} />
+            <Route path="/ativos-ti" element={<ITAssetsPage />} />
 
             {/* Ativo detalhe */}
             <Route path="/ativo/:id" element={<AssetDetail />} />

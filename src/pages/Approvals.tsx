@@ -15,6 +15,8 @@ import { useAuth } from '@/hooks/use-auth'
 import { approvalsService, companiesService, sectorsService, usersService } from '@/services/api'
 import pb from '@/lib/pocketbase/client'
 import useRealtime from '@/hooks/use-realtime'
+import { useViewMode } from '@/hooks/use-view-mode'
+import { ViewModeToggle } from '@/components/ViewModeToggle'
 import type { Approval, ApprovalStatus, Company, Sector } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -65,6 +67,9 @@ export default function Approvals() {
   const [createOpen, setCreateOpen] = useState(false)
   const [form, setForm] = useState({ title: '', description: '' })
   const [saving, setSaving] = useState(false)
+
+  // View mode state (persisted em localStorage) — padrão Lista
+  const { viewMode, toggleViewMode } = useViewMode('approvals-view-mode')
 
   const fetchData = useCallback(async () => {
     try {
@@ -185,6 +190,37 @@ export default function Approvals() {
     }
   }
 
+  const renderActions = (a: Approval) => {
+    if (!(isAdmin && a.status === 'Pendente')) return null
+    return (
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          className="bg-[#0062a8] hover:bg-[#00508a] text-white text-xs h-8 px-4 rounded-xl gap-1.5"
+          disabled={actingId === a.id}
+          onClick={() => openApproveModal(a)}
+        >
+          {actingId === a.id ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Check className="h-3.5 w-3.5 stroke-[2.5]" />
+          )}
+          Aprovar
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-red-600 border-red-200 hover:bg-red-50 text-xs h-8 px-4 rounded-xl gap-1.5"
+          disabled={actingId === a.id}
+          onClick={() => handleReject(a)}
+        >
+          <X className="h-3.5 w-3.5" />
+          Rejeitar
+        </Button>
+      </div>
+    )
+  }
+
   const renderCard = (a: Approval) => {
     const isAccessRequest = Boolean(a.email)
 
@@ -259,37 +295,56 @@ export default function Approvals() {
             </span>
           </div>
 
-          {isAdmin && a.status === 'Pendente' && (
-            <div className="flex items-center gap-2 pt-2">
-              <Button
-                size="sm"
-                className="bg-[#0062a8] hover:bg-[#00508a] text-white text-xs h-8 px-4 rounded-xl gap-1.5 flex-1"
-                disabled={actingId === a.id}
-                onClick={() => (isAccessRequest ? openApproveModal(a) : openApproveModal(a))}
-              >
-                {actingId === a.id ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Check className="h-3.5 w-3.5 stroke-[2.5]" />
-                )}
-                Aprovar
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-red-600 border-red-200 hover:bg-red-50 text-xs h-8 px-4 rounded-xl gap-1.5 flex-1"
-                disabled={actingId === a.id}
-                onClick={() => handleReject(a)}
-              >
-                <X className="h-3.5 w-3.5" />
-                Rejeitar
-              </Button>
-            </div>
-          )}
+          {renderActions(a)}
         </CardContent>
       </Card>
     )
   }
+
+  const renderListItem = (a: Approval) => {
+    const isAccessRequest = Boolean(a.email)
+    return (
+      <div
+        key={a.id}
+        className="flex items-center gap-3 px-4 py-3 border-b border-slate-100 last:border-0 hover:bg-sky-50/30 transition-colors"
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-bold text-slate-900 truncate">{a.title}</p>
+            {isAccessRequest && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-[#0062a8] shrink-0">
+                Acesso
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-slate-500 truncate">
+            {isAccessRequest ? `${a.name || '—'} • ${a.email}` : a.description || '—'}
+          </p>
+        </div>
+        <Badge
+          variant="outline"
+          className={cn('text-[10px] font-bold shrink-0', STATUS_COLORS[a.status])}
+        >
+          {a.status}
+        </Badge>
+        <span className="text-[11px] text-slate-400 shrink-0 hidden sm:inline">
+          {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(new Date(a.created))}
+        </span>
+        <div className="shrink-0">{renderActions(a)}</div>
+      </div>
+    )
+  }
+
+  const renderList = (list: Approval[]) =>
+    viewMode === 'list' ? (
+      <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-2xs">
+        {list.map(renderListItem)}
+      </div>
+    ) : (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {list.map(renderCard)}
+      </div>
+    )
 
   return (
     <div className="space-y-6 font-sans">
@@ -310,21 +365,36 @@ export default function Approvals() {
               : 'Acompanhe o status das suas solicitações no sistema'}
           </p>
         </div>
-        <Button
-          onClick={() => setCreateOpen(true)}
-          className="bg-[#0062a8] hover:bg-[#00508a] text-white font-semibold text-xs h-10 px-5 rounded-xl gap-2 shadow-xs"
-        >
-          <Plus className="h-4 w-4" />
-          Nova Solicitação
-        </Button>
+        <div className="flex items-center gap-2">
+          <ViewModeToggle
+            viewMode={viewMode}
+            onToggle={toggleViewMode}
+            activeColorClass="text-[#0062a8]"
+          />
+          <Button
+            onClick={() => setCreateOpen(true)}
+            className="bg-[#0062a8] hover:bg-[#00508a] text-white font-semibold text-xs h-10 px-5 rounded-xl gap-2 shadow-xs"
+          >
+            <Plus className="h-4 w-4" />
+            Nova Solicitação
+          </Button>
+        </div>
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-44 w-full rounded-2xl" />
-          ))}
-        </div>
+        viewMode === 'list' ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-14 w-full rounded-xl" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-44 w-full rounded-2xl" />
+            ))}
+          </div>
+        )
       ) : (
         <div className="space-y-6">
           <div>
@@ -336,9 +406,7 @@ export default function Approvals() {
                 Nenhuma solicitação pendente no momento.
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {pending.map(renderCard)}
-              </div>
+              renderList(pending)
             )}
           </div>
 
@@ -348,9 +416,7 @@ export default function Approvals() {
                 <Check className="h-4 w-4 text-emerald-500" /> Histórico de Resolvidas (
                 {resolved.length})
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {resolved.map(renderCard)}
-              </div>
+              {renderList(resolved)}
             </div>
           )}
         </div>

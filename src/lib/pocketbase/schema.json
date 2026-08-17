@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-17T03:46:36.732Z",
+  "generatedAt": "2026-08-17T04:03:39.162Z",
   "collections": [
     {
       "name": "users",
@@ -593,6 +593,24 @@
           "required": false,
           "system": false,
           "selectValues": ["TLS", "SSL", "Nenhum"]
+        },
+        {
+          "name": "smtp_sender_email",
+          "type": "email",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "smtp_sender_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "smtp_use_tls",
+          "type": "bool",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": ["CREATE INDEX idx_companies_name ON companies (name)"]
