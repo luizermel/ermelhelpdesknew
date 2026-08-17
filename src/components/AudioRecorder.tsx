@@ -104,7 +104,9 @@ export default function AudioRecorder({
   const handleStart = async () => {
     if (disabled) return
 
-    // Abort early if the browser can't record at all (no MediaRecorder API)
+    // Abort early if the browser can't record at all (no MediaRecorder API).
+    // Importante: esta verificação NÃO dispara o prompt de permissão, então pode
+    // rodar no topo do handler sem consumir a user gesture.
     if (
       typeof navigator === 'undefined' ||
       !navigator.mediaDevices ||
@@ -122,9 +124,11 @@ export default function AudioRecorder({
     chunksRef.current = []
 
     try {
-      // Chama diretamente navigator.mediaDevices.getUserMedia({ audio: true })
-      // dentro do handler de clique para disparar o prompt nativo do navegador
-      // como uma interação de usuário válida.
+      // CRÍTICO: navigator.mediaDevices.getUserMedia deve ser chamado DIRETAMENTE
+      // dentro do handler de clique do usuário (user gesture), sem setTimeout,
+      // sem await intermediário e sem callbacks aninhados que percam o contexto
+      // da interação. O navegador exige isso para mostrar o prompt nativo
+      // "site.com quer acessar seu microfone".
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
 
@@ -166,7 +170,7 @@ export default function AudioRecorder({
         }
       }, 250)
     } catch (err) {
-      console.error(err)
+      console.error('Erro ao iniciar gravação:', err)
       const name = (err as { name?: string })?.name
       if (
         name === 'NotAllowedError' ||

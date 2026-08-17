@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import {
   Plus,
   Pencil,
@@ -9,6 +9,8 @@ import {
   Tag,
   Boxes,
   Building2,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import {
@@ -139,6 +141,53 @@ export default function Records() {
   )
 }
 
+// Tri-state sort direction for clickable table headers:
+// null = ordenação padrão, 'asc' = A-Z (crescente), 'desc' = Z-A (decrescente)
+type SortDir = 'asc' | 'desc' | null
+
+function SortHeader({
+  label,
+  active,
+  dir,
+  align = 'left',
+  onClick,
+}: {
+  label: string
+  active: boolean
+  dir: SortDir
+  align?: 'left' | 'right'
+  onClick: () => void
+}) {
+  return (
+    <TableHead
+      className={`text-xs font-semibold text-slate-600 py-3 select-none cursor-pointer hover:text-[#0062a8] transition-colors ${
+        align === 'right' ? 'text-right' : ''
+      }`}
+      onClick={onClick}
+      title={`Ordenar por ${label}`}
+    >
+      <span
+        className={`inline-flex items-center gap-1 ${align === 'right' ? 'flex-row-reverse' : ''}`}
+      >
+        {label}
+        {active &&
+          (dir === 'asc' ? (
+            <ArrowUp className="h-3 w-3 text-[#0062a8]" />
+          ) : (
+            <ArrowDown className="h-3 w-3 text-[#0062a8]" />
+          ))}
+      </span>
+    </TableHead>
+  )
+}
+
+// Próximo valor no ciclo tri-state: null → asc → desc → null
+function nextDir(dir: SortDir): SortDir {
+  if (dir === null) return 'asc'
+  if (dir === 'asc') return 'desc'
+  return null
+}
+
 function EmptyRow({ colSpan, label }: { colSpan: number; label: string }) {
   return (
     <TableRow>
@@ -186,6 +235,32 @@ function CategoriesSubcategoriesTwoColumnTab() {
   const [subCatId, setSubCatId] = useState('')
   const [subSaving, setSubSaving] = useState(false)
 
+  // Ordenação por coluna (tri-state) — Categorias e Subcategorias
+  const [catSortKey, setCatSortKey] = useState<'name' | 'status' | null>(null)
+  const [catSortDir, setCatSortDir] = useState<SortDir>(null)
+  const [subSortKey, setSubSortKey] = useState<'name' | 'category' | 'status' | null>(null)
+  const [subSortDir, setSubSortDir] = useState<SortDir>(null)
+
+  const toggleCatSort = (key: 'name' | 'status') => {
+    if (catSortKey !== key) {
+      setCatSortKey(key)
+      setCatSortDir('asc')
+      return
+    }
+    setCatSortDir(nextDir(catSortDir))
+    if (catSortDir === 'desc') setCatSortKey(null)
+  }
+
+  const toggleSubSort = (key: 'name' | 'category' | 'status') => {
+    if (subSortKey !== key) {
+      setSubSortKey(key)
+      setSubSortDir('asc')
+      return
+    }
+    setSubSortDir(nextDir(subSortDir))
+    if (subSortDir === 'desc') setSubSortKey(null)
+  }
+
   const fetchData = useCallback(async () => {
     try {
       const [cats, subs] = await Promise.all([
@@ -211,6 +286,32 @@ function CategoriesSubcategoriesTwoColumnTab() {
     const found = categories.find((c) => c.id === catIdOrName || c.name === catIdOrName)
     return found ? found.name : catIdOrName
   }
+
+  // Listas ordenadas conforme o estado de ordenação de cada tabela
+  const sortedCategories = useMemo(() => {
+    if (!catSortKey || !catSortDir) return categories
+    const dir = catSortDir === 'asc' ? 1 : -1
+    return [...categories].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR') * dir)
+  }, [categories, catSortKey, catSortDir])
+
+  const sortedSubcategories = useMemo(() => {
+    if (!subSortKey || !subSortDir) return subcategories
+    const dir = subSortDir === 'asc' ? 1 : -1
+    return [...subcategories].sort((a, b) => {
+      switch (subSortKey) {
+        case 'name':
+          return a.name.localeCompare(b.name, 'pt-BR') * dir
+        case 'category':
+          return (
+            getCategoryName(a.category_id).localeCompare(getCategoryName(b.category_id), 'pt-BR') *
+            dir
+          )
+        default:
+          return 0
+      }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subcategories, subSortKey, subSortDir, categories])
 
   // --- Handlers Categoria ---
   const openCatCreate = () => {
@@ -334,10 +435,18 @@ function CategoriesSubcategoriesTwoColumnTab() {
             <Table>
               <TableHeader className="bg-slate-50/80">
                 <TableRow className="hover:bg-transparent border-b border-slate-200/60">
-                  <TableHead className="text-xs font-semibold text-slate-600 py-3">Nome</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-600 py-3">
-                    Situação
-                  </TableHead>
+                  <SortHeader
+                    label="Nome"
+                    active={catSortKey === 'name'}
+                    dir={catSortDir}
+                    onClick={() => toggleCatSort('name')}
+                  />
+                  <SortHeader
+                    label="Situação"
+                    active={catSortKey === 'status'}
+                    dir={catSortDir}
+                    onClick={() => toggleCatSort('status')}
+                  />
                   <TableHead className="text-right text-xs font-semibold text-slate-600 py-3">
                     Ações
                   </TableHead>
@@ -346,10 +455,10 @@ function CategoriesSubcategoriesTwoColumnTab() {
               <TableBody>
                 {loading ? (
                   <LoadingRows n={4} cols={3} />
-                ) : categories.length === 0 ? (
+                ) : sortedCategories.length === 0 ? (
                   <EmptyRow colSpan={3} label="Nenhuma categoria cadastrada." />
                 ) : (
-                  categories.map((c) => (
+                  sortedCategories.map((c) => (
                     <TableRow
                       key={c.id}
                       className="hover:bg-slate-50/60 border-b border-slate-100 last:border-0"
@@ -414,13 +523,24 @@ function CategoriesSubcategoriesTwoColumnTab() {
             <Table>
               <TableHeader className="bg-slate-50/80">
                 <TableRow className="hover:bg-transparent border-b border-slate-200/60">
-                  <TableHead className="text-xs font-semibold text-slate-600 py-3">Nome</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-600 py-3">
-                    Categoria
-                  </TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-600 py-3">
-                    Situação
-                  </TableHead>
+                  <SortHeader
+                    label="Nome"
+                    active={subSortKey === 'name'}
+                    dir={subSortDir}
+                    onClick={() => toggleSubSort('name')}
+                  />
+                  <SortHeader
+                    label="Categoria"
+                    active={subSortKey === 'category'}
+                    dir={subSortDir}
+                    onClick={() => toggleSubSort('category')}
+                  />
+                  <SortHeader
+                    label="Situação"
+                    active={subSortKey === 'status'}
+                    dir={subSortDir}
+                    onClick={() => toggleSubSort('status')}
+                  />
                   <TableHead className="text-right text-xs font-semibold text-slate-600 py-3">
                     Ações
                   </TableHead>
@@ -429,10 +549,10 @@ function CategoriesSubcategoriesTwoColumnTab() {
               <TableBody>
                 {loading ? (
                   <LoadingRows n={4} cols={4} />
-                ) : subcategories.length === 0 ? (
+                ) : sortedSubcategories.length === 0 ? (
                   <EmptyRow colSpan={4} label="Nenhuma subcategoria cadastrada." />
                 ) : (
-                  subcategories.map((sc) => (
+                  sortedSubcategories.map((sc) => (
                     <TableRow
                       key={sc.id}
                       className="hover:bg-slate-50/60 border-b border-slate-100 last:border-0"
