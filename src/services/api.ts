@@ -12,6 +12,7 @@ import type {
   InventoryLocation,
   InventoryMovement,
   InventoryMovementType,
+  MaterialRequest,
   KnowledgeArticle,
   Priority,
   QuickReply,
@@ -605,7 +606,10 @@ export const assetsService = {
 // =========================================================
 export const inventoryItemsService = {
   async getAll(): Promise<InventoryItem[]> {
-    return await pb.collection('inventory_items').getFullList<InventoryItem>({ sort: 'name' })
+    return await pb.collection('inventory_items').getFullList<InventoryItem>({
+      sort: 'name',
+      expand: 'location',
+    })
   },
   async create(data: Partial<InventoryItem>): Promise<InventoryItem> {
     const r = await pb.collection('inventory_items').create<InventoryItem>(data)
@@ -677,6 +681,133 @@ export const inventoryMovementsService = {
       `Movimentação (${data.type}) de ${data.quantity}`,
     )
     return r
+  },
+}
+
+// =========================================================
+// Material requests service
+// =========================================================
+export const materialRequestsService = {
+  async getAll(): Promise<MaterialRequest[]> {
+    return await pb.collection('material_requests').getFullList<MaterialRequest>({
+      sort: '-created',
+      expand: 'requester,item,destination_location,approver',
+    })
+  },
+  async getByToken(token: string): Promise<MaterialRequest | null> {
+    try {
+      const records = await pb.collection('material_requests').getFullList<MaterialRequest>({
+        filter: `token = "${token}"`,
+        expand: 'requester,item,destination_location,approver',
+      })
+      return records[0] || null
+    } catch {
+      return null
+    }
+  },
+  async create(data: Partial<MaterialRequest>): Promise<MaterialRequest> {
+    // Generate a secure signature token for public confirmation if needed
+    const token = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+
+    const r = await pb.collection('material_requests').create<MaterialRequest>(
+      {
+        ...data,
+        status: 'Pendente',
+        token,
+      },
+      {
+        expand: 'requester,item,destination_location,approver',
+      },
+    )
+    await auditService.log(
+      'create',
+      'material_request',
+      r.id,
+      `Requisição criada: ${r.item_name || 'Material'}`,
+    )
+    return r
+  },
+  async approve(
+    id: string,
+    approverId: string,
+    signatureData: {
+      signature_type: 'Sistema' | 'LinkPúblico'
+      signature_name: string
+      signature_email?: string
+      signature_notes?: string
+    },
+  ): Promise<MaterialRequest> {
+    const req = await pb.collection('material_requests').getOne<MaterialRequest>(id, {
+      expand: 'item,destination_location',
+    })
+
+    const updated = await pb.collection('material_requests').update<MaterialRequest>(
+      id,
+      {
+        status: 'Aprovado',
+        approver: approverId,
+        signed_at: new Date().toISOString(),
+        ...signatureData,
+      },
+      {
+        expand: 'requester,item,destination_location,approver',
+      },
+    )
+
+    // Execute auto-inventory deduction or movement if linked item exists
+    if (req.item) {
+      try {
+        const itemRecord = await pb.collection('inventory_items').getOne<InventoryItem>(req.item)
+        const currentQty = itemRecord.quantity || 0
+        const newQty = Math.max(0, currentQty - (req.quantity || 1))
+
+        // Update stock quantity
+        await pb.collection('inventory_items').update(req.item, {
+          quantity: newQty,
+          ...(req.destination_location ? { location: req.destination_location } : {}),
+        })
+
+        // Log movement
+        await inventoryMovementsService.create({
+          item: req.item,
+          from_location: itemRecord.location,
+          to_location: req.destination_location,
+          quantity: req.quantity || 1,
+          type: req.destination_location ? 'Transferência' : 'Saída',
+          notes: `Baixa via aprovação de requisição (${updated.id}) - Assinado por ${signatureData.signature_name}`,
+          created_by: approverId,
+        })
+      } catch (err) {
+        console.error('Erro ao dar baixa/transferir item no estoque:', err)
+      }
+    }
+
+    await auditService.log(
+      'update',
+      'material_request',
+      id,
+      `Requisição APROVADA com assinatura de ${signatureData.signature_name} (${signatureData.signature_type})`,
+    )
+
+    return updated
+  },
+  async reject(id: string, approverId: string, reason: string): Promise<MaterialRequest> {
+    const updated = await pb.collection('material_requests').update<MaterialRequest>(
+      id,
+      {
+        status: 'Rejeitado',
+        approver: approverId,
+        rejection_reason: reason,
+      },
+      {
+        expand: 'requester,item,destination_location,approver',
+      },
+    )
+
+    await auditService.log('update', 'material_request', id, `Requisição REJEITADA: ${reason}`)
+    return updated
   },
 }
 

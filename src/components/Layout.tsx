@@ -19,6 +19,11 @@ import {
   X,
   ChevronRight,
   ChevronLeft,
+  Boxes,
+  Package,
+  MapPin,
+  ArrowRightLeft,
+  ClipboardList,
   type LucideIcon,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
@@ -77,6 +82,15 @@ const NAV_GROUPS: NavGroup[] = [
         adminOnly: true,
       },
       { to: '/respostas-rapidas', defaultLabel: 'Respostas Rápidas', defaultIcon: Zap },
+    ],
+  },
+  {
+    label: 'Estoque',
+    items: [
+      { to: '/estoque/itens', defaultLabel: 'Itens e Ativos', defaultIcon: Package },
+      { to: '/estoque/localizacoes', defaultLabel: 'Localizações', defaultIcon: MapPin },
+      { to: '/estoque/movimentacoes', defaultLabel: 'Movimentações', defaultIcon: ArrowRightLeft },
+      { to: '/estoque/requisicoes', defaultLabel: 'Requisições', defaultIcon: ClipboardList },
     ],
   },
   {

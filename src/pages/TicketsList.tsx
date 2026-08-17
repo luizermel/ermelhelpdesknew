@@ -56,6 +56,8 @@ const STATUS_WEIGHT: Record<TicketStatus, number> = {
   Aberto: 1,
   'Em andamento': 2,
   Concluído: 3,
+  Finalizado: 4,
+  'Finalizado e Aprovado': 5,
 }
 
 export default function TicketsList() {

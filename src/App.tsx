@@ -7,6 +7,12 @@ import { ProtectedRoute, PublicOnlyRoute } from '@/components/ProtectedRoute'
 import Layout from './components/Layout'
 
 // Pages
+import InventoryItemsPage from './pages/InventoryItems'
+import InventoryLocationsPage from './pages/InventoryLocations'
+import InventoryMovementsPage from './pages/InventoryMovements'
+import MaterialRequestsPage from './pages/MaterialRequests'
+import PublicConfirmationPage from './pages/PublicConfirmation'
+
 import Login from './pages/Index'
 import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
@@ -73,6 +79,12 @@ const App = () => (
             <Route path="/novo-chamado" element={<NewTicket />} />
             <Route path="/chamados/:id" element={<TicketDetail />} />
 
+            {/* Estoque e Ativos */}
+            <Route path="/estoque/itens" element={<InventoryItemsPage />} />
+            <Route path="/estoque/localizacoes" element={<InventoryLocationsPage />} />
+            <Route path="/estoque/movimentacoes" element={<InventoryMovementsPage />} />
+            <Route path="/estoque/requisicoes" element={<MaterialRequestsPage />} />
+
             {/* Atendimento */}
             <Route path="/conhecimento" element={<Knowledge />} />
             <Route path="/respostas-rapidas" element={<QuickReplies />} />
@@ -133,6 +145,9 @@ const App = () => (
               }
             />
           </Route>
+
+          {/* Public external confirmation */}
+          <Route path="/confirmacao-publica/:token" element={<PublicConfirmationPage />} />
 
           {/* 404 Fallback */}
           <Route path="*" element={<NotFound />} />

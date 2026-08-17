@@ -47,7 +47,6 @@ export function RolesTab() {
   const [canManageUsers, setCanManageUsers] = useState(false)
   const [canManageTickets, setCanManageTickets] = useState(false)
   const [canManageSettings, setCanManageSettings] = useState(false)
-  const [canManageInventory, setCanManageInventory] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -73,7 +72,6 @@ export function RolesTab() {
     setCanManageUsers(false)
     setCanManageTickets(true)
     setCanManageSettings(false)
-    setCanManageInventory(false)
     setIsAdmin(false)
     setOpen(true)
   }
@@ -86,7 +84,6 @@ export function RolesTab() {
     setCanManageUsers(!!r.can_manage_users)
     setCanManageTickets(!!r.can_manage_tickets)
     setCanManageSettings(!!r.can_manage_settings)
-    setCanManageInventory(!!r.can_manage_inventory)
     setIsAdmin(!!r.is_admin)
     setOpen(true)
   }
@@ -103,7 +100,6 @@ export function RolesTab() {
         can_manage_users: canManageUsers,
         can_manage_tickets: canManageTickets,
         can_manage_settings: canManageSettings,
-        can_manage_inventory: canManageInventory,
         is_admin: isAdmin,
       }
       if (editing) await rolesService.update(editing.id, data)
@@ -210,11 +206,6 @@ export function RolesTab() {
                           Relatórios
                         </span>
                       )}
-                      {r.can_manage_inventory && (
-                        <span className="bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded font-medium">
-                          Inventário
-                        </span>
-                      )}
                       {r.can_manage_users && (
                         <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded font-medium">
                           Usuários
@@ -312,20 +303,6 @@ export function RolesTab() {
                     className="text-xs font-medium text-slate-700 cursor-pointer"
                   >
                     Visualizar Relatórios
-                  </Label>
-                </div>
-
-                <div className="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 bg-slate-50/50">
-                  <Switch
-                    checked={canManageInventory}
-                    onCheckedChange={setCanManageInventory}
-                    id="perm-inventory"
-                  />
-                  <Label
-                    htmlFor="perm-inventory"
-                    className="text-xs font-medium text-slate-700 cursor-pointer"
-                  >
-                    Gerenciar Inventário/Ativos
                   </Label>
                 </div>
 

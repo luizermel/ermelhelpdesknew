@@ -32,7 +32,12 @@ export type TicketCategory =
   | 'Telefonia'
   | 'Outros'
 
-export type TicketStatus = 'Aberto' | 'Em andamento' | 'Concluído'
+export type TicketStatus =
+  | 'Aberto'
+  | 'Em andamento'
+  | 'Concluído'
+  | 'Finalizado'
+  | 'Finalizado e Aprovado'
 export type TicketPriority = 'Baixa' | 'Média' | 'Alta'
 
 export interface Ticket extends RecordModel {
@@ -41,6 +46,7 @@ export interface Ticket extends RecordModel {
   category: TicketCategory
   status: TicketStatus
   priority: TicketPriority
+  finalized_by?: string | null
   requester: string
   assigned_to?: string | null
   sector: string
@@ -227,6 +233,42 @@ export interface InventoryItem extends RecordModel {
   quantity: number
   min_quantity: number
   unit?: string
+  item_type?: 'Ativo' | 'Consumível'
+  serial_number?: string
+  location?: string
+  status?: 'Em uso' | 'Em manutenção' | 'Em estoque' | 'Desativado'
+  expand?: {
+    location?: InventoryLocation
+  }
+}
+
+export type MaterialRequestStatus = 'Pendente' | 'Aprovado' | 'Rejeitado'
+export type SignatureType = 'Sistema' | 'LinkPúblico'
+
+export interface MaterialRequest extends RecordModel {
+  requester: string
+  item?: string
+  item_name?: string
+  item_type: 'Ativo' | 'Consumível'
+  quantity: number
+  unit?: string
+  destination_location?: string
+  reason: string
+  status: MaterialRequestStatus
+  signature_type?: SignatureType
+  signature_name?: string
+  signature_email?: string
+  signature_notes?: string
+  signed_at?: string
+  token?: string
+  approver?: string
+  rejection_reason?: string
+  expand?: {
+    requester?: User
+    item?: InventoryItem
+    destination_location?: InventoryLocation
+    approver?: User
+  }
 }
 
 export interface InventoryLocation extends RecordModel {

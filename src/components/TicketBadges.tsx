@@ -15,6 +15,10 @@ export const StatusBadge: React.FC<{ status: TicketStatus; className?: string }>
         return 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100/80'
       case 'Concluído':
         return 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100/80'
+      case 'Finalizado':
+        return 'bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100/80'
+      case 'Finalizado e Aprovado':
+        return 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100/80'
       default:
         return 'bg-slate-100 text-slate-700 border-slate-200'
     }
@@ -34,6 +38,8 @@ export const StatusBadge: React.FC<{ status: TicketStatus; className?: string }>
           'bg-amber-500': status === 'Aberto',
           'bg-blue-500': status === 'Em andamento',
           'bg-emerald-500': status === 'Concluído',
+          'bg-teal-500': status === 'Finalizado',
+          'bg-green-600': status === 'Finalizado e Aprovado',
         })}
       />
       {status}
