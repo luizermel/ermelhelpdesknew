@@ -125,6 +125,9 @@ export interface Company extends RecordModel {
   smtp_user?: string
   smtp_password?: string
   smtp_security?: 'TLS' | 'SSL' | 'Nenhum'
+  smtp_sender_email?: string
+  smtp_sender_name?: string
+  smtp_use_tls?: boolean
 }
 
 // ---------- Produtos, Fabricantes, Fornecedores ----------
@@ -173,6 +176,7 @@ export interface Product extends RecordModel {
   is_it_asset?: boolean
   is_patrimony?: boolean
   avg_price?: number
+  situacao?: boolean
   expand?: {
     category?: ProductCategory
     subcategory?: ProductSubcategory

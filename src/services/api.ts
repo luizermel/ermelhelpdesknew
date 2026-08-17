@@ -423,20 +423,12 @@ export const companiesService = {
   async getAll(): Promise<Company[]> {
     return await pb.collection('companies').getFullList<Company>({ sort: 'name' })
   },
-  async create(data: {
-    name: string
-    cnpj?: string
-    phone?: string
-    email?: string
-  }): Promise<Company> {
+  async create(data: Partial<Company>): Promise<Company> {
     const r = await pb.collection('companies').create<Company>(data)
     await auditService.log('create', 'company', r.id, `Empresa criada: ${data.name}`)
     return r
   },
-  async update(
-    id: string,
-    data: Partial<{ name: string; cnpj?: string; phone?: string; email?: string }>,
-  ): Promise<Company> {
+  async update(id: string, data: Partial<Company>): Promise<Company> {
     const r = await pb.collection('companies').update<Company>(id, data)
     await auditService.log('update', 'company', id, `Empresa atualizada: ${data.name || id}`)
     return r

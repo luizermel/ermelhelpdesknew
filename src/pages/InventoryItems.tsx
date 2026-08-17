@@ -44,6 +44,17 @@ export default function InventoryItemsPage() {
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<'todos' | 'Ativo' | 'Consumível'>('todos')
 
+  // View mode state (persisted in localStorage)
+  const [viewMode, setViewMode] = useState<'card' | 'list'>(() => {
+    const saved = localStorage.getItem('inventory-items-view-mode')
+    return saved === 'card' ? 'card' : 'list'
+  })
+
+  const toggleViewMode = (mode: 'card' | 'list') => {
+    setViewMode(mode)
+    localStorage.setItem('inventory-items-view-mode', mode)
+  }
+
   // Modal State
   const [dialogOpen, setDialogOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -237,6 +248,115 @@ export default function InventoryItemsPage() {
             Cadastre um novo item ou ajuste seus filtros de busca.
           </p>
         </Card>
+      ) : viewMode === 'list' ? (
+        /* List View (Table) */
+        <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-2xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 border-b border-slate-200/80 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
+                <tr>
+                  <th className="py-3 px-4">Nome</th>
+                  <th className="py-3 px-4">Tipo</th>
+                  <th className="py-3 px-4">Serial</th>
+                  <th className="py-3 px-4">Localização</th>
+                  <th className="py-3 px-4">Quantidade</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredItems.map((it) => {
+                  const isAsset = (it.item_type || 'Consumível') === 'Ativo'
+                  const isLowStock = !isAsset && it.quantity <= (it.min_quantity || 0)
+                  const locName = it.expand?.location?.name || 'Não definida'
+
+                  return (
+                    <tr key={it.id} className="hover:bg-indigo-50/30 transition-colors group">
+                      <td className="py-3 px-4">
+                        <p className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1">
+                          {it.name}
+                        </p>
+                        {it.category && (
+                          <span className="text-[11px] text-slate-400 font-medium">
+                            {it.category}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <Badge
+                          variant="outline"
+                          className={
+                            isAsset
+                              ? 'bg-purple-50 text-purple-700 border-purple-200 font-medium text-[10px]'
+                              : 'bg-blue-50 text-blue-700 border-blue-200 font-medium text-[10px]'
+                          }
+                        >
+                          {isAsset ? 'Ativo' : 'Consumível'}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        {isAsset ? (
+                          <span className="font-mono font-bold text-slate-900">
+                            {it.serial_number || 'Sem serial'}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 whitespace-nowrap text-slate-700">
+                        <span className="inline-flex items-center gap-1.5">
+                          <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                          {locName}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        {isAsset ? (
+                          <span className="text-slate-400">—</span>
+                        ) : (
+                          <span
+                            className={`font-bold ${
+                              isLowStock ? 'text-red-600' : 'text-slate-900'
+                            }`}
+                          >
+                            {it.quantity} {it.unit || 'un'}
+                            {isLowStock && (
+                              <AlertCircle className="inline h-3 w-3 text-red-600 ml-1 shrink-0" />
+                            )}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <Badge variant="secondary" className="text-[10px]">
+                          {it.status || 'Em estoque'}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-4 whitespace-nowrap text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleOpenEdit(it)}
+                            className="h-7 w-7 text-slate-500 hover:text-indigo-600 hover:bg-slate-100"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(it)}
+                            className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredItems.map((it) => {
