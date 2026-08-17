@@ -291,7 +291,17 @@ function CategoriesSubcategoriesTwoColumnTab() {
   const sortedCategories = useMemo(() => {
     if (!catSortKey || !catSortDir) return categories
     const dir = catSortDir === 'asc' ? 1 : -1
-    return [...categories].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR') * dir)
+    return [...categories].sort((a, b) => {
+      switch (catSortKey) {
+        case 'name':
+          return a.name.localeCompare(b.name, 'pt-BR') * dir
+        case 'status':
+          // Situação é sempre "Ativa" para categorias — mantém a ordem original
+          return 0
+        default:
+          return 0
+      }
+    })
   }, [categories, catSortKey, catSortDir])
 
   const sortedSubcategories = useMemo(() => {
@@ -306,6 +316,9 @@ function CategoriesSubcategoriesTwoColumnTab() {
             getCategoryName(a.category_id).localeCompare(getCategoryName(b.category_id), 'pt-BR') *
             dir
           )
+        case 'status':
+          // Situação é sempre "Ativa" para subcategorias — mantém a ordem original
+          return 0
         default:
           return 0
       }
