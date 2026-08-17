@@ -605,7 +605,7 @@ export const inventoryItemsService = {
   async getAll(): Promise<InventoryItem[]> {
     return await pb.collection('inventory_items').getFullList<InventoryItem>({
       sort: 'name',
-      expand: 'location',
+      expand: 'location,product',
     })
   },
   async create(data: Partial<InventoryItem>): Promise<InventoryItem> {

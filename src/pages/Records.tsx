@@ -11,8 +11,11 @@ import {
   Building2,
   ArrowUp,
   ArrowDown,
+  Mail,
+  ChevronDown,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
+import { cn } from '@/lib/utils'
 import {
   sectorsCrudService,
   categoriesService,
@@ -916,7 +919,17 @@ function CompaniesTab() {
 
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Company | null>(null)
-  const [form, setForm] = useState({ name: '', cnpj: '', phone: '', email: '' })
+  const [form, setForm] = useState({
+    name: '',
+    cnpj: '',
+    phone: '',
+    email: '',
+    smtp_host: '',
+    smtp_port: '' as number | '',
+    smtp_sender_email: '',
+    smtp_password: '',
+  })
+  const [showSmtp, setShowSmtp] = useState(false)
 
   const [selectedSectors, setSelectedSectors] = useState<string[]>([])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
@@ -948,7 +961,17 @@ function CompaniesTab() {
 
   const openCreate = () => {
     setEditing(null)
-    setForm({ name: '', cnpj: '', phone: '', email: '' })
+    setForm({
+      name: '',
+      cnpj: '',
+      phone: '',
+      email: '',
+      smtp_host: '',
+      smtp_port: '',
+      smtp_sender_email: '',
+      smtp_password: '',
+    })
+    setShowSmtp(false)
     setSelectedSectors(allSectors.map((s) => s.name))
     setSelectedCategories(allCategories.map((c) => c.name))
     setSelectedSubcategories(allSubcategories.map((sc) => sc.name))
@@ -956,7 +979,17 @@ function CompaniesTab() {
   }
   const openEdit = (c: Company) => {
     setEditing(c)
-    setForm({ name: c.name, cnpj: c.cnpj || '', phone: c.phone || '', email: c.email || '' })
+    setForm({
+      name: c.name,
+      cnpj: c.cnpj || '',
+      phone: c.phone || '',
+      email: c.email || '',
+      smtp_host: c.smtp_host || '',
+      smtp_port: c.smtp_port ?? '',
+      smtp_sender_email: c.smtp_sender_email || '',
+      smtp_password: c.smtp_password || '',
+    })
+    setShowSmtp(false)
     setSelectedSectors(allSectors.map((s) => s.name))
     setSelectedCategories(allCategories.map((c) => c.name))
     setSelectedSubcategories(allSubcategories.map((sc) => sc.name))
@@ -999,8 +1032,18 @@ function CompaniesTab() {
     if (!form.name.trim()) return
     setSaving(true)
     try {
-      if (editing) await companiesService.update(editing.id, form)
-      else await companiesService.create(form)
+      const payload = {
+        name: form.name.trim(),
+        cnpj: form.cnpj.trim(),
+        phone: form.phone.trim(),
+        email: form.email.trim(),
+        smtp_host: form.smtp_host.trim(),
+        smtp_port: form.smtp_port === '' ? undefined : Number(form.smtp_port),
+        smtp_sender_email: form.smtp_sender_email.trim(),
+        smtp_password: form.smtp_password,
+      }
+      if (editing) await companiesService.update(editing.id, payload)
+      else await companiesService.create(payload)
       toast.success(editing ? 'Empresa atualizada!' : 'Empresa criada!')
       setOpen(false)
       fetchAll()
@@ -1227,6 +1270,69 @@ function CompaniesTab() {
                     )
                   })}
               </div>
+            </div>
+
+            {/* Configuração de E-mail (SMTP) */}
+            <div className="space-y-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowSmtp((s) => !s)}
+                className="flex w-full items-center gap-2 text-xs font-bold text-[#0c2340] hover:text-[#0062a8] transition-colors"
+              >
+                <Mail className="h-4 w-4 text-[#0062a8]" />
+                Configuração de E-mail (SMTP)
+                <ChevronDown
+                  className={cn('h-4 w-4 ml-auto transition-transform', showSmtp && 'rotate-180')}
+                />
+              </button>
+              {showSmtp && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-[#f8fafc] border border-slate-200/80 rounded-xl">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">Servidor SMTP</Label>
+                    <Input
+                      value={form.smtp_host}
+                      onChange={(e) => setForm({ ...form, smtp_host: e.target.value })}
+                      placeholder="Ex: smtp.empresa.com.br"
+                      className="h-10 text-xs sm:text-sm rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">Porta SMTP</Label>
+                    <Input
+                      type="number"
+                      value={form.smtp_port}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          smtp_port: e.target.value === '' ? '' : Number(e.target.value),
+                        })
+                      }
+                      placeholder="Ex: 587"
+                      className="h-10 text-xs sm:text-sm rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">Email Remetente</Label>
+                    <Input
+                      type="email"
+                      value={form.smtp_sender_email}
+                      onChange={(e) => setForm({ ...form, smtp_sender_email: e.target.value })}
+                      placeholder="noreply@empresa.com.br"
+                      className="h-10 text-xs sm:text-sm rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">Senha SMTP</Label>
+                    <Input
+                      type="password"
+                      value={form.smtp_password}
+                      onChange={(e) => setForm({ ...form, smtp_password: e.target.value })}
+                      placeholder="••••••••"
+                      className="h-10 text-xs sm:text-sm rounded-xl"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <DialogFooter className="pt-2 gap-2">
