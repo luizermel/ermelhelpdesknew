@@ -18,6 +18,7 @@ import type {
   Product,
   ProductCategory,
   ProductSubcategory,
+  Brand,
   Manufacturer,
   Supplier,
   QuickReply,
@@ -102,7 +103,35 @@ export const ticketsService = {
   },
 
   async updateStatus(ticketId: string, newStatus: Ticket['status'], authorId: string) {
-    // 1. Update ticket status
+    // Manufacturers (Fabricantes) — CRUD
+// =========================================================
+=======
+// =========================================================
+// Brands (Marcas) — CRUD
+// =========================================================
+export const brandsService = {
+  async getAll(): Promise<Brand[]> {
+    return await pb.collection('brands').getFullList<Brand>({ sort: 'name' })
+  },
+  async create(data: { name: string }): Promise<Brand> {
+    const r = await pb.collection('brands').create<Brand>(data)
+    await auditService.log('create', 'brand', r.id, `Marca criada: ${data.name}`)
+    return r
+  },
+  async update(id: string, data: { name: string }): Promise<Brand> {
+    const r = await pb.collection('brands').update<Brand>(id, data)
+    await auditService.log('update', 'brand', id, `Marca atualizada: ${data.name}`)
+    return r
+  },
+  async remove(id: string): Promise<void> {
+    await pb.collection('brands').delete(id)
+    await auditService.log('delete', 'brand', id, 'Marca removida')
+  },
+}
+
+// =========================================================
+// Manufacturers (Fabricantes) — CRUD
+// =========================================================1. Update ticket status
     const updated = await pb.collection('tickets').update<Ticket>(
       ticketId,
       {

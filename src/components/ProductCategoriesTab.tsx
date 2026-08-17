@@ -29,7 +29,13 @@ type SortDir = 'asc' | 'desc'
  * Renderiza duas seções (Categorias acima, Subcategorias abaixo) seguindo o
  * padrão de tabela com CRUD, ordenação por clique no cabeçalho e A-Z.
  */
-export function ProductCategoriesTab() {
+export function ProductCategoriesTab({
+  hideCategories = false,
+  hideSubcategories = false,
+}: {
+  hideCategories?: boolean
+  hideSubcategories?: boolean
+} = {}) {
   const [categories, setCategories] = useState<ProductCategory[]>([])
   const [subcategories, setSubcategories] = useState<ProductSubcategory[]>([])
   const [loading, setLoading] = useState(true)
@@ -215,6 +221,7 @@ export function ProductCategoriesTab() {
   return (
     <div className="space-y-8">
       {/* CATEGORIAS */}
+      {!hideCategories && (
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
@@ -298,8 +305,10 @@ export function ProductCategoriesTab() {
           </table>
         </div>
       </section>
+      )}
 
       {/* SUBCATEGORIAS */}
+      {!hideSubcategories && (
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">

@@ -143,6 +143,10 @@ export interface ProductSubcategory extends RecordModel {
   }
 }
 
+export interface Brand extends RecordModel {
+  name: string
+}
+
 export interface Manufacturer extends RecordModel {
   name: string
   cnpj?: string

@@ -30,7 +30,7 @@ const EMPTY: PartnerForm = { name: '', site: '', contact: '', phone: '' }
  * Ambos seguem o mesmo padrão: tabela com CRUD (nome, site, contato, telefone),
  * ordenação por clique no cabeçalho e A-Z.
  */
-function PartnerSection({
+export function PartnerSection({
   title,
   icon,
   service,
