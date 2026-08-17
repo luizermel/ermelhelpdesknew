@@ -4,10 +4,12 @@ import { ArrowLeft, Upload, X, FileImage, Loader2, AlertCircle, CheckCircle2 } f
 import { useAuth } from '@/hooks/use-auth'
 import {
   sectorsService,
+  categoriesService,
   subcategoriesService,
   ticketsService,
   messagesService,
 } from '@/services/api'
+import type { Category } from '@/types'
 import type { Sector, Subcategory, TicketCategory, TicketPriority } from '@/types'
 import pb from '@/lib/pocketbase/client'
 import { Button } from '@/components/ui/button'
@@ -81,6 +83,7 @@ export default function NewTicket() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [sectors, setSectors] = useState<Sector[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [loadingSectors, setLoadingSectors] = useState(true)
   const [subcategories, setSubcategories] = useState<Subcategory[]>([])
   const [subcategory, setSubcategory] = useState('')
@@ -111,7 +114,12 @@ export default function NewTicket() {
       .catch((err) => console.error(err))
       .finally(() => setLoadingSectors(false))
 
-    // Carrega subcategorias
+    // Carrega categorias e subcategorias
+    categoriesService
+      .getAll()
+      .then(setCategories)
+      .catch((err) => console.error(err))
+
     subcategoriesService
       .getAll()
       .then(setSubcategories)
@@ -129,8 +137,19 @@ export default function NewTicket() {
     }
   }, [user?.sector])
 
+  // Resolve o ID da categoria selecionada caso category seja o nome (ex: "Acesso e Senha")
+  const selectedCatObj = categories.find((c) => c.name === category || c.id === category)
+  const selectedCatId = selectedCatObj ? selectedCatObj.id : ''
+
   // Subcategorias filtradas pela categoria selecionada
-  const filteredSubcategories = subcategories.filter((s) => s.category_id === category)
+  const filteredSubcategories = subcategories.filter((s) => {
+    if (!category) return false
+    return (
+      s.category_id === category ||
+      (selectedCatId && s.category_id === selectedCatId) ||
+      (selectedCatObj && s.category_id === selectedCatObj.name)
+    )
+  })
 
   // Quando a categoria muda, limpa a subcategoria selecionada
   useEffect(() => {

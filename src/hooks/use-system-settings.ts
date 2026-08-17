@@ -16,6 +16,8 @@ export interface SystemSettingsContext {
   footerLeft: string
   footerRight: string
   allowPublicRegister: boolean
+  finalizationApprovalHours: number
+  reopenDeadlineHours: number
   settings: SystemSettings | null
   refresh: () => Promise<void>
   loading: boolean
@@ -35,6 +37,8 @@ const DEFAULTS: SystemSettingsContext = {
   footerLeft: 'Uso interno • Ambiente corporativo',
   footerRight: 'Suporte com transparência',
   allowPublicRegister: true,
+  finalizationApprovalHours: 48,
+  reopenDeadlineHours: 72,
   settings: null,
   refresh: async () => {},
   loading: true,
@@ -59,6 +63,9 @@ async function loadSettings(): Promise<SystemSettingsContext> {
       footerLeft: s?.footer_left || DEFAULTS.footerLeft,
       footerRight: s?.footer_right || DEFAULTS.footerRight,
       allowPublicRegister: s?.allow_public_register ?? DEFAULTS.allowPublicRegister,
+      finalizationApprovalHours:
+        s?.finalization_approval_hours ?? DEFAULTS.finalizationApprovalHours,
+      reopenDeadlineHours: s?.reopen_deadline_hours ?? DEFAULTS.reopenDeadlineHours,
       settings: s,
       refresh: doRefresh,
       loading: false,

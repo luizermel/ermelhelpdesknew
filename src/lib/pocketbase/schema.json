@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-16T23:39:37.052Z",
+  "generatedAt": "2026-08-17T00:30:38.789Z",
   "collections": [
     {
       "name": "users",
@@ -64,6 +64,13 @@
           "type": "bool",
           "required": false,
           "system": false
+        },
+        {
+          "name": "role_profile",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "roles"
         }
       ],
       "indexes": [
@@ -341,17 +348,11 @@
           "required": false,
           "system": false,
           "collectionRef": "companies"
-        },
-        {
-          "name": "situacao",
-          "type": "bool",
-          "required": false,
-          "system": false
         }
       ],
       "indexes": [
-        "CREATE UNIQUE INDEX `idx_tokenKey__pb_users_auth_` ON `users` (`tokenKey`)",
-        "CREATE UNIQUE INDEX `idx_email__pb_users_auth_` ON `users` (`email`) WHERE `email` != ''"
+        "CREATE INDEX idx_knowledge_articles_category ON knowledge_articles (category)",
+        "CREATE INDEX idx_knowledge_articles_created ON knowledge_articles (created DESC)"
       ]
     },
     {
@@ -897,6 +898,18 @@
           "type": "bool",
           "required": false,
           "system": false
+        },
+        {
+          "name": "finalization_approval_hours",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reopen_deadline_hours",
+          "type": "number",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": []
@@ -1207,6 +1220,82 @@
         }
       ],
       "indexes": ["CREATE INDEX idx_subcategories_name ON subcategories (name)"]
+    },
+    {
+      "name": "roles",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "can_view_reports",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "can_manage_users",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "can_manage_tickets",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "can_manage_settings",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "can_manage_inventory",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_admin",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
     }
   ]
 }

@@ -10,6 +10,7 @@ export interface User extends RecordModel {
   email: string
   name: string
   role: UserRole
+  role_profile?: string
   sector?: string
   company?: string
   avatar?: string
@@ -17,6 +18,7 @@ export interface User extends RecordModel {
   expand?: {
     sector?: Sector
     company?: Company
+    role_profile?: Role
   }
 }
 
@@ -179,6 +181,19 @@ export interface SystemSettings extends RecordModel {
   smtp_user?: string
   smtp_password?: string
   custom_menu?: CustomMenuItem[]
+  finalization_approval_hours?: number
+  reopen_deadline_hours?: number
+}
+
+export interface Role extends RecordModel {
+  name: string
+  description?: string
+  can_view_reports?: boolean
+  can_manage_users?: boolean
+  can_manage_tickets?: boolean
+  can_manage_settings?: boolean
+  can_manage_inventory?: boolean
+  is_admin?: boolean
 }
 
 export type AssetType =

@@ -20,7 +20,28 @@ import type {
   Ticket,
   TicketMessage,
   User,
+  Role,
 } from '@/types'
+
+export const rolesService = {
+  async getAll(): Promise<Role[]> {
+    return await pb.collection('roles').getFullList<Role>({ sort: 'name' })
+  },
+  async create(data: Partial<Role>): Promise<Role> {
+    const r = await pb.collection('roles').create<Role>(data)
+    await auditService.log('create', 'role', r.id, `Perfil de acesso criado: ${data.name}`)
+    return r
+  },
+  async update(id: string, data: Partial<Role>): Promise<Role> {
+    const r = await pb.collection('roles').update<Role>(id, data)
+    await auditService.log('update', 'role', id, `Perfil de acesso atualizado: ${data.name}`)
+    return r
+  },
+  async remove(id: string): Promise<void> {
+    await pb.collection('roles').delete(id)
+    await auditService.log('delete', 'role', id, 'Perfil de acesso removido')
+  },
+}
 
 export const sectorsService = {
   async getAll(): Promise<Sector[]> {
@@ -143,8 +164,18 @@ export const usersService = {
   async getAll(): Promise<User[]> {
     return await pb.collection('users').getFullList<User>({
       sort: 'name',
-      expand: 'sector,company',
+      expand: 'sector,company,role_profile',
     })
+  },
+
+  async updateRoleProfile(userId: string, roleProfileId: string): Promise<User> {
+    return await pb.collection('users').update<User>(
+      userId,
+      { role_profile: roleProfileId },
+      {
+        expand: 'sector,company,role_profile',
+      },
+    )
   },
 
   async updateRole(userId: string, role: 'user' | 'admin'): Promise<User> {

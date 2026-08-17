@@ -43,11 +43,13 @@ import { cn } from '@/lib/utils'
 import AudioRecorder from '@/components/AudioRecorder'
 import { isAudioPath } from '@/lib/tickets'
 import pb from '@/lib/pocketbase/client'
+import { useSystemSettings } from '@/hooks/use-system-settings'
 
 export default function TicketDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { user, isAdmin } = useAuth()
+  const { finalizationApprovalHours, reopenDeadlineHours } = useSystemSettings()
 
   const [ticket, setTicket] = useState<Ticket | null>(null)
   const [messages, setMessages] = useState<TicketMessage[]>([])
@@ -219,6 +221,17 @@ export default function TicketDetail() {
   }).format(new Date(ticket.created))
 
   const isClosed = ticket.status === 'Concluído'
+
+  // Deadline calculations
+  const createdDate = ticket ? new Date(ticket.created) : new Date()
+  const updatedDate = ticket ? new Date(ticket.updated) : new Date()
+  const now = new Date()
+
+  // Diff in hours since updated (when it was marked as Concluído)
+  const hoursSinceClosed = isClosed ? (now.getTime() - updatedDate.getTime()) / (1000 * 60 * 60) : 0
+
+  const canReopen = isClosed && hoursSinceClosed <= reopenDeadlineHours
+  const canApproveFinalization = isClosed && hoursSinceClosed <= finalizationApprovalHours
 
   return (
     <div className="space-y-6">
@@ -450,14 +463,73 @@ export default function TicketDetail() {
             </div>
           </div>
 
-          {/* Comment Composer */}
+          {/* Comment Composer & Reopen / Finalize Actions */}
           <Card className="bg-white border-slate-200 shadow-sm rounded-2xl">
             <CardContent className="p-4">
               {isClosed ? (
-                <div className="text-center py-4 text-xs text-slate-500 bg-slate-50 rounded-xl border border-slate-100">
-                  <CheckCircle2 className="h-5 w-5 text-emerald-500 mx-auto mb-1" />
-                  <p className="font-semibold text-slate-700">Chamado Concluído</p>
-                  <p>Este chamado já foi finalizado e não aceita novos comentários.</p>
+                <div className="space-y-4">
+                  <div className="text-center py-4 text-xs text-slate-500 bg-emerald-50/60 rounded-xl border border-emerald-100 p-4">
+                    <CheckCircle2 className="h-6 w-6 text-emerald-600 mx-auto mb-1.5" />
+                    <p className="font-bold text-slate-800 text-sm">Chamado Concluído</p>
+                    <p className="mt-1">
+                      Este chamado foi marcado como concluído pela equipe de atendimento.
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Tempo decorrido do encerramento: {hoursSinceClosed.toFixed(1)}h (limite de
+                      reabertura: {reopenDeadlineHours}h)
+                    </p>
+                  </div>
+
+                  {/* Actions within deadline */}
+                  <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                    {canApproveFinalization && (
+                      <Button
+                        type="button"
+                        onClick={async () => {
+                          if (!ticket || !user) return
+                          try {
+                            await messagesService.create({
+                              ticket: ticket.id,
+                              author: user.id,
+                              content: 'Finalização do chamado aprovada pelo solicitante.',
+                              event_type: 'comentario',
+                            })
+                            toast.success('Finalização aprovada com sucesso!')
+                            await fetchTicketData()
+                          } catch {
+                            toast.error('Erro ao aprovar finalização.')
+                          }
+                        }}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold gap-1.5"
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        Aprovar Finalização
+                      </Button>
+                    )}
+
+                    {canReopen ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => handleStatusChange('Em andamento')}
+                        disabled={statusUpdating}
+                        className="border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold gap-1.5"
+                      >
+                        {statusUpdating ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Clock className="h-4 w-4" />
+                        )}
+                        Reabrir Chamado (dentro do prazo de {reopenDeadlineHours}h)
+                      </Button>
+                    ) : (
+                      <p className="text-xs text-red-500 font-medium flex items-center gap-1">
+                        <AlertCircle className="h-4 w-4 shrink-0" />
+                        O prazo limite de reabertura ({reopenDeadlineHours}h) expirou. Este chamado
+                        foi encerrado permanentemente.
+                      </p>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-3">

@@ -1,6 +1,15 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, PlusCircle, X, LifeBuoy, Building2, Calendar } from 'lucide-react'
+import {
+  Search,
+  PlusCircle,
+  X,
+  LifeBuoy,
+  Building2,
+  Calendar,
+  LayoutGrid,
+  List,
+} from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { ticketsService, sectorsService } from '@/services/api'
 import useRealtime from '@/hooks/use-realtime'
@@ -35,6 +44,17 @@ export default function TicketsList() {
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [sectors, setSectors] = useState<Sector[]>([])
   const [loading, setLoading] = useState(true)
+
+  // View mode state (persisted in localStorage)
+  const [viewMode, setViewMode] = useState<'card' | 'list'>(() => {
+    const saved = localStorage.getItem('tickets_view_mode')
+    return saved === 'list' ? 'list' : 'card'
+  })
+
+  const toggleViewMode = (mode: 'card' | 'list') => {
+    setViewMode(mode)
+    localStorage.setItem('tickets_view_mode', mode)
+  }
 
   // Filters
   const [search, setSearch] = useState('')
@@ -131,15 +151,51 @@ export default function TicketsList() {
           </p>
         </div>
 
-        <Button
-          asChild
-          className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-sm self-start sm:self-auto"
-        >
-          <Link to="/chamados/novo" className="flex items-center gap-2">
-            <PlusCircle className="h-4 w-4" />
-            <span>Abrir Chamado</span>
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          {/* Toggle View Mode */}
+          <div className="bg-slate-100 p-1 rounded-xl flex items-center border border-slate-200/80">
+            <Button
+              type="button"
+              variant={viewMode === 'card' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => toggleViewMode('card')}
+              className={`h-8 px-2.5 text-xs font-semibold rounded-lg gap-1.5 transition-all ${
+                viewMode === 'card'
+                  ? 'bg-white text-indigo-600 shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="Visualização em Cards"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Cards</span>
+            </Button>
+            <Button
+              type="button"
+              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => toggleViewMode('list')}
+              className={`h-8 px-2.5 text-xs font-semibold rounded-lg gap-1.5 transition-all ${
+                viewMode === 'list'
+                  ? 'bg-white text-indigo-600 shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="Visualização em Lista"
+            >
+              <List className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Lista</span>
+            </Button>
+          </div>
+
+          <Button
+            asChild
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-sm"
+          >
+            <Link to="/chamados/novo" className="flex items-center gap-2">
+              <PlusCircle className="h-4 w-4" />
+              <span>Abrir Chamado</span>
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Filter and Search Bar */}
@@ -227,7 +283,7 @@ export default function TicketsList() {
         </CardContent>
       </Card>
 
-      {/* Ticket Cards Grid (1 col mobile / 2 cols desktop) */}
+      {/* Ticket List View OR Card Grid View */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[1, 2, 3, 4].map((i) => (
@@ -258,7 +314,78 @@ export default function TicketsList() {
             </Button>
           )}
         </Card>
+      ) : viewMode === 'list' ? (
+        /* List View (Compact Table) */
+        <div className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-2xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 border-b border-slate-200/80 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
+                <tr>
+                  <th className="py-3 px-4">Título / Descrição</th>
+                  <th className="py-3 px-4">Categoria</th>
+                  <th className="py-3 px-4">Setor / Solicitante</th>
+                  <th className="py-3 px-4">Prioridade</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4 text-right">Data</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredTickets.map((ticket) => {
+                  const formattedDate = new Intl.DateTimeFormat('pt-BR', {
+                    dateStyle: 'short',
+                    timeStyle: 'short',
+                  }).format(new Date(ticket.created))
+
+                  return (
+                    <tr
+                      key={ticket.id}
+                      className="hover:bg-indigo-50/30 transition-colors group cursor-pointer"
+                    >
+                      <td className="py-3 px-4 max-w-xs sm:max-w-md">
+                        <Link to={`/chamados/${ticket.id}`} className="block">
+                          <p className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1">
+                            {ticket.title}
+                          </p>
+                          <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
+                            {ticket.description}
+                          </p>
+                        </Link>
+                      </td>
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                          {ticket.category}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 whitespace-nowrap text-slate-700">
+                        <div className="flex flex-col">
+                          <span className="font-medium">
+                            {ticket.expand?.sector?.name || 'Setor Geral'}
+                          </span>
+                          {ticket.expand?.requester?.name && (
+                            <span className="text-[11px] text-slate-400">
+                              {ticket.expand.requester.name}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <PriorityBadge priority={ticket.priority} />
+                      </td>
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <StatusBadge status={ticket.status} />
+                      </td>
+                      <td className="py-3 px-4 whitespace-nowrap text-right text-slate-400 text-[11px]">
+                        {formattedDate}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       ) : (
+        /* Card View */
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredTickets.map((ticket) => {
             const formattedDate = new Intl.DateTimeFormat('pt-BR', {

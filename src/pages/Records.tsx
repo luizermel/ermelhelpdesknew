@@ -19,8 +19,12 @@ import {
   companiesService,
   usersService,
   sectorsService,
+  rolesService,
+  settingsService,
 } from '@/services/api'
-import type { Sector, Category, Subcategory, Priority, Company, User } from '@/types'
+import type { Sector, Category, Subcategory, Priority, Company, User, Role } from '@/types'
+import { useSystemSettings } from '@/hooks/use-system-settings'
+import { RolesTab, DeadlinesTab } from '@/components/RecordsExtraTabs'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -53,14 +57,23 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { toast } from 'sonner'
 
-type TabKey = 'empresas' | 'setores' | 'categorias' | 'prioridades' | 'atendentes'
+type TabKey =
+  | 'empresas'
+  | 'setores'
+  | 'categorias'
+  | 'prioridades'
+  | 'atendentes'
+  | 'perfis'
+  | 'prazos'
 
 const TABS: { value: TabKey; label: string }[] = [
   { value: 'empresas', label: 'Empresas' },
   { value: 'setores', label: 'Setores' },
   { value: 'categorias', label: 'Categorias' },
   { value: 'prioridades', label: 'Prioridades' },
+  { value: 'perfis', label: 'Perfis de Acesso' },
   { value: 'atendentes', label: 'Usuários' },
+  { value: 'prazos', label: 'Prazos e Pós-Fechamento' },
 ]
 
 function getInitials(name?: string) {
@@ -112,8 +125,14 @@ export default function Records() {
         <TabsContent value="prioridades">
           <PrioritiesTab />
         </TabsContent>
+        <TabsContent value="perfis">
+          <RolesTab />
+        </TabsContent>
         <TabsContent value="atendentes">
           <AttendantsTab />
+        </TabsContent>
+        <TabsContent value="prazos">
+          <DeadlinesTab />
         </TabsContent>
       </Tabs>
     </div>
@@ -1395,6 +1414,7 @@ function AttendantsTab() {
   const [users, setUsers] = useState<User[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
   const [sectors, setSectors] = useState<Sector[]>([])
+  const [rolesList, setRolesList] = useState<Role[]>([])
   const [loading, setLoading] = useState(true)
 
   const [editOpen, setEditOpen] = useState(false)
@@ -1402,6 +1422,7 @@ function AttendantsTab() {
   const [formName, setFormName] = useState('')
   const [formEmail, setFormEmail] = useState('')
   const [formRole, setFormRole] = useState<'user' | 'admin'>('user')
+  const [formRoleProfile, setFormRoleProfile] = useState('')
   const [formCompany, setFormCompany] = useState('')
   const [formSector, setFormSector] = useState('')
   const [formSituacao, setFormSituacao] = useState(true)
@@ -1409,14 +1430,16 @@ function AttendantsTab() {
 
   const fetch = useCallback(async () => {
     try {
-      const [u, comp, sec] = await Promise.all([
+      const [u, comp, sec, r] = await Promise.all([
         usersService.getAll(),
         companiesService.getAll(),
         sectorsService.getAll(),
+        rolesService.getAll(),
       ])
       setUsers(u)
       setCompanies(comp)
       setSectors(sec)
+      setRolesList(r)
     } catch {
       toast.error('Erro ao carregar usuários.')
     } finally {
@@ -1433,6 +1456,7 @@ function AttendantsTab() {
     setFormName(u.name || '')
     setFormEmail(u.email || '')
     setFormRole(u.role || 'user')
+    setFormRoleProfile(u.role_profile || '')
     setFormCompany(u.company || '')
     setFormSector(u.sector || '')
     setFormSituacao(u.situacao !== false)
@@ -1453,6 +1477,9 @@ function AttendantsTab() {
       }
       if (formRole !== editingUser.role) {
         await usersService.updateRole(editingUser.id, formRole)
+      }
+      if (formRoleProfile !== (editingUser.role_profile || '')) {
+        await usersService.updateRoleProfile(editingUser.id, formRoleProfile)
       }
       if (formCompany !== (editingUser.company || '')) {
         await usersService.updateCompany(editingUser.id, formCompany)
@@ -1494,7 +1521,7 @@ function AttendantsTab() {
                 Setor
               </TableHead>
               <TableHead className="text-xs font-semibold text-slate-600 py-3.5 px-6">
-                Perfil
+                Perfil Acesso
               </TableHead>
               <TableHead className="text-xs font-semibold text-slate-600 py-3.5 px-6">
                 Situação
@@ -1543,15 +1570,20 @@ function AttendantsTab() {
                     {u.expand?.sector?.name || '—'}
                   </TableCell>
                   <TableCell className="py-4 px-6">
-                    {u.role === 'admin' ? (
+                    {u.expand?.role_profile?.name ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
+                        <Shield className="h-3 w-3" />
+                        {u.expand.role_profile.name}
+                      </span>
+                    ) : u.role === 'admin' ? (
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-md bg-sky-100 text-[#0062a8]">
                         <Shield className="h-3 w-3" />
-                        admin
+                        Acesso Total (Admin)
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-600">
                         <UserIcon className="h-3 w-3" />
-                        user
+                        Usuário Padrão
                       </span>
                     )}
                   </TableCell>
@@ -1626,14 +1658,37 @@ function AttendantsTab() {
               </Label>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-700">Perfil *</Label>
+              <Label className="text-xs font-semibold text-slate-700">
+                Nível do Sistema (Role)
+              </Label>
               <Select value={formRole} onValueChange={(v) => setFormRole(v as 'user' | 'admin')}>
                 <SelectTrigger className="h-10 rounded-xl text-xs">
-                  <SelectValue placeholder="Selecione o perfil" />
+                  <SelectValue placeholder="Selecione a role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">admin</SelectItem>
-                  <SelectItem value="user">user</SelectItem>
+                  <SelectItem value="admin">Administrador (admin)</SelectItem>
+                  <SelectItem value="user">Usuário comum (user)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-700">
+                Perfil de Acesso Personalizado
+              </Label>
+              <Select
+                value={formRoleProfile || '__none'}
+                onValueChange={(v) => setFormRoleProfile(v === '__none' ? '' : v)}
+              >
+                <SelectTrigger className="h-10 rounded-xl text-xs">
+                  <SelectValue placeholder="Selecione o perfil de acesso" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">— Nenhum / Padrão —</SelectItem>
+                  {rolesList.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
