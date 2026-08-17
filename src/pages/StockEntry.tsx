@@ -43,6 +43,7 @@ import {
 } from '@/components/ui/select'
 import { toast } from 'sonner'
 import pb from '@/lib/pocketbase/client'
+import { ProductAutocomplete } from '@/components/ProductAutocomplete'
 
 interface EntryItem {
   key: string
@@ -131,6 +132,16 @@ export default function StockEntry() {
     return !!p.is_serial || !!p.is_it_asset
   }
 
+  // Patrimônio = item único (quantity fixa em 1, serial opcional)
+  const isProductPatrimony = (productId: string) => {
+    const p = productMap.get(productId)
+    if (!p) return false
+    return !!p.is_patrimony
+  }
+
+  const isItemUnique = (productId: string) =>
+    isProductSerial(productId) || isProductPatrimony(productId)
+
   const updateItem = (key: string, patch: Partial<EntryItem>) => {
     setItems((prev) =>
       prev.map((it) => {
@@ -141,6 +152,17 @@ export default function StockEntry() {
           const p = productMap.get(patch.productId)
           next.barcode = p?.barcode || ''
           next.serials = []
+          // Patrimônio = item único: força quantity = 1
+          if (p && !!p.is_patrimony) {
+            next.quantity = 1
+          }
+        }
+        // Patrimônio trava a quantidade em 1
+        if (patch.quantity !== undefined) {
+          const p = productMap.get(it.productId)
+          if (p && !!p.is_patrimony) {
+            next.quantity = 1
+          }
         }
         return next
       }),
@@ -154,6 +176,11 @@ export default function StockEntry() {
 
   // Abre o modal de seriais ao sair do campo de quantidade
   const handleQuantityBlur = (it: EntryItem) => {
+    if (isProductPatrimony(it.productId)) {
+      // Patrimônio: sempre 1, não abre modal de seriais automaticamente
+      setItems((prev) => prev.map((x) => (x.key === it.key ? { ...x, quantity: 1 } : x)))
+      return
+    }
     if (!isProductSerial(it.productId)) return
     const qty = Math.max(1, Math.floor(it.quantity) || 1)
     if (qty <= 0) return
@@ -188,10 +215,13 @@ export default function StockEntry() {
   // Validação de duplicidade dentro do item e global
   const validateSerials = (it: EntryItem): string | null => {
     const filled = it.serials.map((s) => s.trim()).filter(Boolean)
-    if (filled.length !== it.serials.length) {
-      return `Preencha todos os ${it.serials.length} números de série do produto "${
-        productMap.get(it.productId)?.name || ''
-      }".`
+    // Patrimônio: serial é opcional — só valida duplicidade se preenchido
+    if (!isProductPatrimony(it.productId)) {
+      if (filled.length !== it.serials.length) {
+        return `Preencha todos os ${it.serials.length} números de série do produto "${
+          productMap.get(it.productId)?.name || ''
+        }".`
+      }
     }
     const dup = new Set(filled.filter((s, i) => filled.indexOf(s) !== i))
     if (dup.size > 0) {
@@ -210,7 +240,7 @@ export default function StockEntry() {
     if (validItems.length === 0) return toast.error('Adicione ao menos um item válido.')
 
     for (const it of validItems) {
-      if (isProductSerial(it.productId)) {
+      if (isProductSerial(it.productId) || isProductPatrimony(it.productId)) {
         const err = validateSerials(it)
         if (err) {
           toast.error(err)
@@ -229,6 +259,7 @@ export default function StockEntry() {
       for (const it of validItems) {
         const product = productMap.get(it.productId)!
         const isSerial = isProductSerial(it.productId)
+        const isPatrimony = isProductPatrimony(it.productId)
 
         if (isSerial) {
           // Um inventory_item por serial
@@ -249,6 +280,24 @@ export default function StockEntry() {
               category: product.expand?.category?.name || undefined,
             })
           }
+        } else if (isPatrimony) {
+          // Patrimônio = item único (quantity=1), serial opcional
+          const sn = it.serials.map((s) => s.trim()).find(Boolean)
+          await inventoryItemsService.create({
+            name: product.name,
+            product: product.id,
+            serial_number: sn || undefined,
+            barcode: it.barcode || undefined,
+            quantity: 1,
+            min_quantity: 0,
+            unit: product.unit || 'un',
+            item_type: 'Ativo',
+            location: locationId,
+            status: 'Em estoque',
+            is_it_asset: false,
+            is_patrimony: true,
+            category: product.expand?.category?.name || undefined,
+          })
         } else {
           // Um inventory_item por linha
           await inventoryItemsService.create({
@@ -272,7 +321,7 @@ export default function StockEntry() {
           quantity: it.quantity,
           barcode: it.barcode,
           unitPrice: informPrices ? it.unitPrice : 0,
-          serials: isSerial ? [...it.serials] : [],
+          serials: isSerial || isPatrimony ? [...it.serials] : [],
           isSerial,
         })
       }
@@ -542,29 +591,36 @@ export default function StockEntry() {
                 {items.map((it) => {
                   const product = productMap.get(it.productId)
                   const isSerial = isProductSerial(it.productId)
+                  const isPatrimony = isProductPatrimony(it.productId)
+                  const isUnique = isItemUnique(it.productId)
                   const serialError = isSerial ? validateSerials(it) : null
                   return (
                     <tr key={it.key} className="align-top">
                       <td className="py-3 px-4">
-                        <Select
+                        <ProductAutocomplete
+                          products={products}
                           value={it.productId}
-                          onValueChange={(v) => updateItem(it.key, { productId: v })}
-                        >
-                          <SelectTrigger className="h-9 text-xs">
-                            <SelectValue placeholder="Selecione o produto" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {products.map((p) => (
-                              <SelectItem key={p.id} value={p.id}>
-                                {p.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {product && (product.is_serial || product.is_it_asset) && (
-                          <Badge className="mt-1 bg-purple-50 text-purple-700 border-purple-200 text-[10px]">
-                            Controla Serial
-                          </Badge>
+                          onChange={(v) => updateItem(it.key, { productId: v })}
+                          placeholder="Buscar produto por nome ou código..."
+                        />
+                        {product && (
+                          <div className="flex items-center gap-1 flex-wrap mt-1">
+                            {product.is_it_asset && (
+                              <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[10px]">
+                                Ativo de TI
+                              </Badge>
+                            )}
+                            {product.is_patrimony && (
+                              <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]">
+                                Patrimônio
+                              </Badge>
+                            )}
+                            {product.is_serial && (
+                              <Badge className="bg-purple-50 text-purple-700 border-purple-200 text-[10px]">
+                                Controla Serial
+                              </Badge>
+                            )}
+                          </div>
                         )}
                       </td>
 
@@ -580,7 +636,13 @@ export default function StockEntry() {
                           }
                           onBlur={() => handleQuantityBlur(it)}
                           className="h-9 text-xs w-24"
+                          disabled={isPatrimony}
                         />
+                        {isPatrimony && (
+                          <p className="text-[10px] text-amber-600 mt-1">
+                            Qtd fixa: 1 (patrimônio)
+                          </p>
+                        )}
                       </td>
 
                       <td className="py-3 px-4">
@@ -638,6 +700,26 @@ export default function StockEntry() {
                                 Incompleto/duplicado
                               </p>
                             )}
+                          </div>
+                        ) : isPatrimony ? (
+                          <div className="space-y-1">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                // Patrimônio: serial opcional, um único campo
+                                let serials = [...it.serials]
+                                if (serials.length === 0) serials = ['']
+                                else if (serials.length > 1) serials = serials.slice(0, 1)
+                                updateItem(it.key, { serials, quantity: 1 })
+                                setSerialModalKey(it.key)
+                              }}
+                              className="h-7 text-[11px] gap-1"
+                            >
+                              <Hash className="h-3 w-3" />
+                              {it.serials.filter((s) => s.trim()).length ? '1 serial' : 'Opcional'}
+                            </Button>
                           </div>
                         ) : (
                           <span className="text-slate-400 text-[11px]">—</span>
@@ -704,7 +786,9 @@ export default function StockEntry() {
             </DialogTitle>
             <p className="text-xs text-slate-500 -mt-1">
               {serialModalItem
-                ? `Produto: ${productMap.get(serialModalItem.productId)?.name || '—'} — informe ${serialModalItem.quantity} serial(is).`
+                ? isProductPatrimony(serialModalItem.productId)
+                  ? `Produto: ${productMap.get(serialModalItem.productId)?.name || '—'} — serial opcional (patrimônio).`
+                  : `Produto: ${productMap.get(serialModalItem.productId)?.name || '—'} — informe ${serialModalItem.quantity} serial(is).`
                 : ''}
             </p>
           </DialogHeader>

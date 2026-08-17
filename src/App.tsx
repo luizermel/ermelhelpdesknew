@@ -13,6 +13,12 @@ import InventoryMovementsPage from './pages/InventoryMovements'
 import MaterialRequestsPage from './pages/MaterialRequests'
 import StockEntryPage from './pages/StockEntry'
 import StockBalancePage from './pages/StockBalance'
+import InventoryDashboardPage from './pages/InventoryDashboard'
+import ManufacturersPage from './pages/ManufacturersPage'
+import SuppliersPage from './pages/SuppliersPage'
+import BrandsPage from './pages/BrandsPage'
+import ProductCategoriesPage from './pages/ProductCategoriesPage'
+import ProductSubcategoriesPage from './pages/ProductSubcategoriesPage'
 import PublicConfirmationPage from './pages/PublicConfirmation'
 
 import Login from './pages/Index'
@@ -83,12 +89,18 @@ const App = () => (
             <Route path="/chamados/:id" element={<TicketDetail />} />
 
             {/* Estoque e Ativos */}
+            <Route path="/estoque" element={<InventoryDashboardPage />} />
             <Route path="/estoque/itens" element={<InventoryItemsPage />} />
             <Route path="/estoque/localizacoes" element={<InventoryLocationsPage />} />
             <Route path="/estoque/movimentacoes" element={<InventoryMovementsPage />} />
             <Route path="/estoque/entrada" element={<StockEntryPage />} />
             <Route path="/estoque/saldo" element={<StockBalancePage />} />
             <Route path="/estoque/requisicoes" element={<MaterialRequestsPage />} />
+            <Route path="/estoque/fabricantes" element={<ManufacturersPage />} />
+            <Route path="/estoque/fornecedores" element={<SuppliersPage />} />
+            <Route path="/estoque/marcas" element={<BrandsPage />} />
+            <Route path="/estoque/categorias-produtos" element={<ProductCategoriesPage />} />
+            <Route path="/estoque/subcategorias-produtos" element={<ProductSubcategoriesPage />} />
 
             {/* Atendimento */}
             <Route path="/conhecimento" element={<Knowledge />} />

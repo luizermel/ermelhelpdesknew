@@ -26,6 +26,11 @@ import {
   ClipboardList,
   PackagePlus,
   Monitor,
+  Factory,
+  Truck,
+  Tag,
+  Layers,
+  AlertTriangle,
   type LucideIcon,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
@@ -40,9 +45,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { getFileUrl } from '@/services/api'
+import { getFileUrl, inventoryItemsService, inventoryMovementsService } from '@/services/api'
 import { cn } from '@/lib/utils'
 import { AVAILABLE_ICONS } from '@/pages/Settings'
+import type { InventoryItem, InventoryMovement } from '@/types'
 
 interface NavItem {
   to: string
@@ -50,6 +56,7 @@ interface NavItem {
   defaultIcon: LucideIcon
   adminOnly?: boolean
   exact?: boolean
+  stockAlert?: boolean
 }
 
 interface NavGroup {
@@ -90,12 +97,31 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Estoque',
     items: [
-      { to: '/estoque/itens', defaultLabel: 'Itens e Ativos', defaultIcon: Package },
+      { to: '/estoque', defaultLabel: 'Dashboard', defaultIcon: Boxes, exact: true },
+      {
+        to: '/estoque/itens',
+        defaultLabel: 'Itens e Ativos',
+        defaultIcon: Package,
+        stockAlert: true,
+      },
       { to: '/estoque/entrada', defaultLabel: 'Entrada de Materiais', defaultIcon: PackagePlus },
       { to: '/estoque/saldo', defaultLabel: 'Saldo do Estoque', defaultIcon: BarChart3 },
       { to: '/estoque/localizacoes', defaultLabel: 'Localizações', defaultIcon: MapPin },
       { to: '/estoque/movimentacoes', defaultLabel: 'Movimentações', defaultIcon: ArrowRightLeft },
       { to: '/estoque/requisicoes', defaultLabel: 'Requisições', defaultIcon: ClipboardList },
+      { to: '/estoque/fabricantes', defaultLabel: 'Fabricantes', defaultIcon: Factory },
+      { to: '/estoque/fornecedores', defaultLabel: 'Fornecedores', defaultIcon: Truck },
+      { to: '/estoque/marcas', defaultLabel: 'Marcas', defaultIcon: Tag },
+      {
+        to: '/estoque/categorias-produtos',
+        defaultLabel: 'Categorias de Produtos',
+        defaultIcon: Layers,
+      },
+      {
+        to: '/estoque/subcategorias-produtos',
+        defaultLabel: 'Subcategorias de Produtos',
+        defaultIcon: Layers,
+      },
     ],
   },
   {
@@ -183,6 +209,45 @@ export default function Layout() {
     }
   }
 
+  // Alerta de itens abaixo do estoque mínimo
+  const [lowStockCount, setLowStockCount] = useState(0)
+
+  useEffect(() => {
+    let active = true
+    const checkLowStock = async () => {
+      try {
+        const [itData, mvData] = await Promise.all([
+          inventoryItemsService.getAll(),
+          inventoryMovementsService.getAll(),
+        ])
+        if (!active) return
+        const netByItem = new Map<string, number>()
+        for (const mv of mvData) {
+          if (!mv.item) continue
+          const itemId = typeof mv.item === 'string' ? mv.item : (mv.item as InventoryItem).id
+          const current = netByItem.get(itemId) || 0
+          if (mv.type === 'Entrada') netByItem.set(itemId, current + (mv.quantity || 0))
+          else if (mv.type === 'Saída') netByItem.set(itemId, current - (mv.quantity || 0))
+        }
+        let count = 0
+        for (const it of itData) {
+          const isAsset = (it.item_type || 'Consumível') === 'Ativo'
+          if (isAsset) continue
+          const qty = netByItem.get(it.id) ?? it.quantity ?? 0
+          const min = it.min_quantity ?? 0
+          if (min > 0 && qty <= min) count += 1
+        }
+        setLowStockCount(count)
+      } catch {
+        /* ignore */
+      }
+    }
+    checkLowStock()
+    return () => {
+      active = false
+    }
+  }, [])
+
   const filteredGroups = NAV_GROUPS.map((g) => ({
     ...g,
     items: g.items.filter((item) => !item.adminOnly || isAdmin),
@@ -236,6 +301,7 @@ export default function Layout() {
           {group.items.map((item) => {
             const { label, Icon } = getCustomizedItem(item)
             const active = isActive(item)
+            const showAlert = item.stockAlert && lowStockCount > 0
             return (
               <NavLink
                 key={item.to}
@@ -258,7 +324,16 @@ export default function Layout() {
                     active ? 'text-white' : 'text-white/60',
                   )}
                 />
-                {!compact && <span className="truncate">{label}</span>}
+                {!compact && <span className="truncate flex-1">{label}</span>}
+                {showAlert && (
+                  <span
+                    className="flex items-center justify-center gap-1 shrink-0 text-[10px] font-bold text-amber-200 bg-amber-500/25 border border-amber-400/40 rounded-full px-1.5 py-0.5"
+                    title={`${lowStockCount} item(ns) abaixo do estoque mínimo`}
+                  >
+                    <AlertTriangle className="h-3 w-3" />
+                    {lowStockCount}
+                  </span>
+                )}
               </NavLink>
             )
           })}
