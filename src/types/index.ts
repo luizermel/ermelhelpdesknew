@@ -51,10 +51,12 @@ export interface Ticket extends RecordModel {
   assigned_to?: string | null
   sector: string
   attachments?: string[]
+  asset?: string | null
   expand?: {
     requester?: User
     assigned_to?: User
     sector?: Sector
+    asset?: InventoryItem
   }
 }
 
@@ -118,6 +120,65 @@ export interface Company extends RecordModel {
   cnpj?: string
   phone?: string
   email?: string
+  smtp_host?: string
+  smtp_port?: number
+  smtp_user?: string
+  smtp_password?: string
+  smtp_security?: 'TLS' | 'SSL' | 'Nenhum'
+}
+
+// ---------- Produtos, Fabricantes, Fornecedores ----------
+export interface ProductCategory extends RecordModel {
+  name: string
+}
+
+export interface ProductSubcategory extends RecordModel {
+  name: string
+  category?: string
+  expand?: {
+    category?: ProductCategory
+  }
+}
+
+export interface Manufacturer extends RecordModel {
+  name: string
+  cnpj?: string
+  contact?: string
+  phone?: string
+  email?: string
+  site?: string
+  situacao?: boolean
+}
+
+export interface Supplier extends RecordModel {
+  name: string
+  cnpj?: string
+  contact?: string
+  phone?: string
+  email?: string
+  site?: string
+  situacao?: boolean
+}
+
+export interface Product extends RecordModel {
+  name: string
+  category?: string
+  subcategory?: string
+  manufacturer?: string
+  supplier?: string
+  cost_price?: number
+  sale_price?: number
+  unit?: string
+  min_stock?: number
+  is_it_asset?: boolean
+  is_patrimony?: boolean
+  avg_price?: number
+  expand?: {
+    category?: ProductCategory
+    subcategory?: ProductSubcategory
+    manufacturer?: Manufacturer
+    supplier?: Supplier
+  }
 }
 
 export interface Contact extends RecordModel {
@@ -226,6 +287,13 @@ export interface Asset extends RecordModel {
   }
 }
 
+export type InventoryItemStatus =
+  | 'Em uso'
+  | 'Em manutenção'
+  | 'Em estoque'
+  | 'Desativado'
+  | 'Aguardando Lançamento'
+
 export interface InventoryItem extends RecordModel {
   name: string
   description?: string
@@ -236,9 +304,16 @@ export interface InventoryItem extends RecordModel {
   item_type?: 'Ativo' | 'Consumível'
   serial_number?: string
   location?: string
-  status?: 'Em uso' | 'Em manutenção' | 'Em estoque' | 'Desativado'
+  status?: InventoryItemStatus
+  product?: string
+  patrimony_number?: string
+  is_it_asset?: boolean
+  is_patrimony?: boolean
+  assigned_user?: string
   expand?: {
     location?: InventoryLocation
+    product?: Product
+    assigned_user?: User
   }
 }
 
