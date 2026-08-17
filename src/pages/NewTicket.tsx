@@ -1,18 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import {
-  ArrowLeft,
-  Upload,
-  X,
-  FileImage,
-  Loader2,
-  AlertCircle,
-  CheckCircle2,
-  Layers,
-  Building2,
-  ShieldAlert,
-  Lock,
-} from 'lucide-react'
+import { ArrowLeft, Upload, X, FileImage, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import {
   sectorsService,
@@ -52,10 +40,14 @@ const CATEGORIES: TicketCategory[] = [
 ]
 
 const PRIORITIES: { value: TicketPriority; label: string; desc: string }[] = [
-  { value: 'Baixa', label: 'Baixa', desc: 'Dúvidas, melhorias ou equipamentos secundários' },
+  {
+    value: 'Baixa',
+    label: 'Baixa (Padrão)',
+    desc: 'Dúvidas, melhorias ou equipamentos secundários',
+  },
   {
     value: 'Média',
-    label: 'Média (Padrão)',
+    label: 'Média',
     desc: 'Impacta o trabalho individual de forma parcial',
   },
   { value: 'Alta', label: 'Alta / Urgente', desc: 'Paralisação total das atividades ou setor' },
@@ -96,9 +88,9 @@ export default function NewTicket() {
   // Form Fields
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [category, setCategory] = useState<TicketCategory>('Hardware')
+  const [category, setCategory] = useState<TicketCategory | ''>('')
   const [sector, setSector] = useState('')
-  const [priority, setPriority] = useState<TicketPriority>('Média')
+  const [priority, setPriority] = useState<TicketPriority>('Baixa')
   const [attachments, setAttachments] = useState<FilePreview[]>([])
 
   const [loading, setLoading] = useState(false)
@@ -140,7 +132,7 @@ export default function NewTicket() {
   // Subcategorias filtradas pela categoria selecionada
   const filteredSubcategories = subcategories.filter((s) => s.category_id === category)
 
-  // Quando a categoria muda, limpa a subcategoria
+  // Quando a categoria muda, limpa a subcategoria selecionada
   useEffect(() => {
     setSubcategory('')
   }, [category])
@@ -220,7 +212,7 @@ export default function NewTicket() {
       const formData = new FormData()
       formData.append('title', title.trim())
       formData.append('description', description.trim())
-      formData.append('category', category)
+      formData.append('category', category as string)
       if (subcategory) formData.append('subcategory', subcategory)
       formData.append('sector', sector)
       formData.append('priority', priority)
@@ -317,15 +309,15 @@ export default function NewTicket() {
               )}
             </div>
 
-            {/* Three Column Row: Category, Subcategory and Sector */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Row: Category and Subcategory (Setor do Atendimento oculto) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Category */}
               <div className="space-y-1.5">
                 <Label htmlFor="category" className="text-xs font-semibold text-slate-700">
                   Categoria do problema <span className="text-red-500">*</span>
                 </Label>
                 <Select
-                  value={category}
+                  value={category || undefined}
                   onValueChange={(val) => setCategory(val as TicketCategory)}
                   disabled={loading}
                 >
@@ -345,22 +337,24 @@ export default function NewTicket() {
                 )}
               </div>
 
-              {/* Subcategory */}
+              {/* Subcategory — habilitada somente após selecionar a categoria */}
               <div className="space-y-1.5">
                 <Label htmlFor="subcategory" className="text-xs font-semibold text-slate-700">
                   Subcategoria
                 </Label>
                 <Select
-                  value={subcategory}
+                  value={subcategory || undefined}
                   onValueChange={setSubcategory}
-                  disabled={loading || filteredSubcategories.length === 0}
+                  disabled={loading || !category || filteredSubcategories.length === 0}
                 >
                   <SelectTrigger id="subcategory">
                     <SelectValue
                       placeholder={
-                        filteredSubcategories.length === 0
-                          ? 'Sem subcategorias'
-                          : 'Selecione a subcategoria'
+                        !category
+                          ? 'Selecione a categoria primeiro'
+                          : filteredSubcategories.length === 0
+                            ? 'Sem subcategorias'
+                            : 'Selecione a subcategoria'
                       }
                     />
                   </SelectTrigger>
@@ -373,31 +367,6 @@ export default function NewTicket() {
                   </SelectContent>
                 </Select>
                 <p className="text-[11px] text-slate-400">Filtrada pela categoria selecionada</p>
-              </div>
-
-              {/* Sector — travado com o setor do usuário logado */}
-              <div className="space-y-1.5">
-                <Label htmlFor="sector" className="text-xs font-semibold text-slate-700">
-                  Setor do atendimento <span className="text-red-500">*</span>
-                </Label>
-                <Select value={sector} disabled>
-                  <SelectTrigger id="sector">
-                    <SelectValue
-                      placeholder={loadingSectors ? 'Carregando setores...' : 'Selecione o setor'}
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sectors.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-[11px] text-slate-400 flex items-center gap-1">
-                  <Lock className="h-3 w-3" />
-                  Setor definido pelo seu perfil
-                </p>
               </div>
             </div>
 

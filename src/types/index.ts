@@ -13,6 +13,7 @@ export interface User extends RecordModel {
   sector?: string
   company?: string
   avatar?: string
+  situacao?: boolean
   expand?: {
     sector?: Sector
     company?: Company

@@ -176,8 +176,20 @@ export const usersService = {
       },
     )
   },
-}
 
+  async updateProfile(
+    userId: string,
+    data: { name?: string; email?: string; situacao?: boolean },
+  ): Promise<User> {
+    const payload: Record<string, unknown> = {}
+    if (typeof data.name !== 'undefined') payload.name = data.name
+    if (typeof data.email !== 'undefined') payload.email = data.email
+    if (typeof data.situacao !== 'undefined') payload.situacao = data.situacao
+    return await pb.collection('users').update<User>(userId, payload, {
+      expand: 'sector,company',
+    })
+  },
+}
 export const getFileUrl = (
   record: { id: string; collectionId?: string; collectionName?: string },
   filename: string,

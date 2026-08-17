@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-16T23:05:22.732Z",
+  "generatedAt": "2026-08-16T23:39:37.052Z",
   "collections": [
     {
       "name": "users",
@@ -58,6 +58,12 @@
           "required": false,
           "system": false,
           "collectionRef": "companies"
+        },
+        {
+          "name": "situacao",
+          "type": "bool",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -335,11 +341,17 @@
           "required": false,
           "system": false,
           "collectionRef": "companies"
+        },
+        {
+          "name": "situacao",
+          "type": "bool",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
-        "CREATE INDEX idx_knowledge_articles_category ON knowledge_articles (category)",
-        "CREATE INDEX idx_knowledge_articles_created ON knowledge_articles (created DESC)"
+        "CREATE UNIQUE INDEX `idx_tokenKey__pb_users_auth_` ON `users` (`tokenKey`)",
+        "CREATE UNIQUE INDEX `idx_email__pb_users_auth_` ON `users` (`email`) WHERE `email` != ''"
       ]
     },
     {

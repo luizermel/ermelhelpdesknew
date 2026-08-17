@@ -207,6 +207,14 @@ function CategoriesSubcategoriesTwoColumnTab() {
   const saveCat = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!catName.trim()) return
+    // OBRIGATÓRIO: ao editar, a categoria precisa ter ao menos uma subcategoria vinculada
+    if (catEditing) {
+      const relatedSubs = subcategories.filter((s) => s.category_id === catEditing.id)
+      if (relatedSubs.length === 0) {
+        toast.error('A categoria precisa ter ao menos uma subcategoria vinculada antes de salvar.')
+        return
+      }
+    }
     setCatSaving(true)
     try {
       if (catEditing) await categoriesService.update(catEditing.id, catName.trim())
@@ -810,9 +818,22 @@ function CompaniesTab() {
   }
 
   const toggleCategory = (name: string) => {
-    setSelectedCategories((prev) =>
-      prev.includes(name) ? prev.filter((c) => c !== name) : [...prev, name],
-    )
+    setSelectedCategories((prev) => {
+      if (prev.includes(name)) {
+        // Ao desmarcar a categoria, remove automaticamente as subcategorias vinculadas a ela
+        const cat = allCategories.find((c) => c.name === name)
+        const subNamesToRemove = cat
+          ? allSubcategories.filter((sc) => sc.category_id === cat.id).map((sc) => sc.name)
+          : []
+        if (subNamesToRemove.length > 0) {
+          setSelectedSubcategories((prevSub) =>
+            prevSub.filter((s) => !subNamesToRemove.includes(s)),
+          )
+        }
+        return prev.filter((c) => c !== name)
+      }
+      return [...prev, name]
+    })
   }
 
   const toggleSubcategory = (name: string) => {
@@ -1028,23 +1049,31 @@ function CompaniesTab() {
             <div className="space-y-2">
               <h3 className="text-xs font-bold text-[#0c2340]">Subcategorias disponíveis</h3>
               <div className="p-3.5 bg-[#f8fafc] border border-slate-200/80 rounded-xl flex flex-wrap gap-2 max-h-[220px] overflow-y-auto">
-                {allSubcategories.map((sc) => {
-                  const selected = selectedSubcategories.includes(sc.name)
-                  return (
-                    <button
-                      key={sc.id}
-                      type="button"
-                      onClick={() => toggleSubcategory(sc.name)}
-                      className={`px-3 py-1 rounded-lg text-[11.5px] font-medium transition-all ${
-                        selected
-                          ? 'bg-white text-[#0a2540] border border-slate-200/90 shadow-2xs'
-                          : 'bg-slate-100 text-slate-400 hover:text-slate-700'
-                      }`}
-                    >
-                      {sc.name}
-                    </button>
-                  )
-                })}
+                {/* Exibe apenas subcategorias das categorias selecionadas e concatena CATEGORIA - SUBCATEGORIA */}
+                {allSubcategories
+                  .filter((sc) => {
+                    const cat = allCategories.find((c) => c.id === sc.category_id)
+                    return cat ? selectedCategories.includes(cat.name) : true
+                  })
+                  .map((sc) => {
+                    const selected = selectedSubcategories.includes(sc.name)
+                    const catName = allCategories.find((c) => c.id === sc.category_id)?.name || ''
+                    const label = catName ? `${catName} - ${sc.name}` : sc.name
+                    return (
+                      <button
+                        key={sc.id}
+                        type="button"
+                        onClick={() => toggleSubcategory(sc.name)}
+                        className={`px-3 py-1 rounded-lg text-[11.5px] font-medium transition-all ${
+                          selected
+                            ? 'bg-white text-[#0a2540] border border-slate-200/90 shadow-2xs'
+                            : 'bg-slate-100 text-slate-400 hover:text-slate-700'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    )
+                  })}
               </div>
             </div>
 
@@ -1370,9 +1399,12 @@ function AttendantsTab() {
 
   const [editOpen, setEditOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [formName, setFormName] = useState('')
+  const [formEmail, setFormEmail] = useState('')
   const [formRole, setFormRole] = useState<'user' | 'admin'>('user')
   const [formCompany, setFormCompany] = useState('')
   const [formSector, setFormSector] = useState('')
+  const [formSituacao, setFormSituacao] = useState(true)
   const [saving, setSaving] = useState(false)
 
   const fetch = useCallback(async () => {
@@ -1398,9 +1430,12 @@ function AttendantsTab() {
 
   const openEdit = (u: User) => {
     setEditingUser(u)
+    setFormName(u.name || '')
+    setFormEmail(u.email || '')
     setFormRole(u.role || 'user')
     setFormCompany(u.company || '')
     setFormSector(u.sector || '')
+    setFormSituacao(u.situacao !== false)
     setEditOpen(true)
   }
 
@@ -1409,6 +1444,13 @@ function AttendantsTab() {
     if (!editingUser) return
     setSaving(true)
     try {
+      const profileChanges: { name?: string; email?: string; situacao?: boolean } = {}
+      if (formName.trim() !== (editingUser.name || '')) profileChanges.name = formName.trim()
+      if (formEmail.trim() !== (editingUser.email || '')) profileChanges.email = formEmail.trim()
+      if (formSituacao !== (editingUser.situacao !== false)) profileChanges.situacao = formSituacao
+      if (Object.keys(profileChanges).length > 0) {
+        await usersService.updateProfile(editingUser.id, profileChanges)
+      }
       if (formRole !== editingUser.role) {
         await usersService.updateRole(editingUser.id, formRole)
       }
@@ -1514,9 +1556,15 @@ function AttendantsTab() {
                     )}
                   </TableCell>
                   <TableCell className="py-4 px-6">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">
-                      Ativo
-                    </span>
+                    {u.situacao !== false ? (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">
+                        Ativo
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-500">
+                        Inativo
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right py-4 px-6">
                     <Button
@@ -1544,20 +1592,38 @@ function AttendantsTab() {
           </DialogHeader>
           <form onSubmit={saveEdit} className="space-y-4 pt-2">
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-700">Nome</Label>
+              <Label className="text-xs font-semibold text-slate-700">Nome *</Label>
               <Input
-                value={editingUser?.name || ''}
-                disabled
-                className="h-10 text-xs sm:text-sm rounded-xl bg-slate-50"
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+                placeholder="Nome do usuário"
+                required
+                disabled={saving}
+                className="h-10 text-xs sm:text-sm rounded-xl"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-700">E-mail</Label>
+              <Label className="text-xs font-semibold text-slate-700">E-mail *</Label>
               <Input
-                value={editingUser?.email || ''}
-                disabled
-                className="h-10 text-xs sm:text-sm rounded-xl bg-slate-50"
+                type="email"
+                value={formEmail}
+                onChange={(e) => setFormEmail(e.target.value)}
+                placeholder="email@empresa.com"
+                required
+                disabled={saving}
+                className="h-10 text-xs sm:text-sm rounded-xl"
               />
+            </div>
+            <div className="flex items-center gap-3 pt-1">
+              <Switch
+                checked={formSituacao}
+                onCheckedChange={setFormSituacao}
+                id="user-situacao"
+                disabled={saving}
+              />
+              <Label htmlFor="user-situacao" className="text-xs font-semibold text-slate-700">
+                Situação: {formSituacao ? 'Ativo' : 'Inativo'}
+              </Label>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-700">Perfil *</Label>
