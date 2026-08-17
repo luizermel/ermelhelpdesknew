@@ -9,11 +9,13 @@ import {
   Calendar,
   LayoutGrid,
   List,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { ticketsService, sectorsService } from '@/services/api'
 import useRealtime from '@/hooks/use-realtime'
-import type { Ticket, Sector, TicketCategory, TicketStatus } from '@/types'
+import type { Ticket, Sector, TicketCategory, TicketStatus, TicketPriority } from '@/types'
 import { StatusBadge, PriorityBadge } from '@/components/TicketBadges'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,15 +30,33 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 
 const CATEGORIES: TicketCategory[] = [
-  'Hardware',
-  'Software',
-  'Rede',
   'Acesso e Senha',
   'E-mail',
+  'Hardware',
   'Impressora',
+  'Rede',
+  'Software',
   'Telefonia',
   'Outros',
 ]
+
+// Sorting state for the list (table) view — tri-state per column:
+// null = no sort (padrão), 'asc' = A-Z / menor-maior, 'desc' = Z-A / maior-menor
+type SortDir = 'asc' | 'desc' | null
+type SortKey = 'title' | 'category' | 'sector' | 'priority' | 'status' | 'created'
+
+const PRIORITY_WEIGHT: Record<TicketPriority, number> = {
+  Baixa: 1,
+  Média: 2,
+  Alta: 3,
+}
+
+// Order em que os status aparecem (para ordenação por coluna de status)
+const STATUS_WEIGHT: Record<TicketStatus, number> = {
+  Aberto: 1,
+  'Em andamento': 2,
+  Concluído: 3,
+}
 
 export default function TicketsList() {
   const { user, isAdmin } = useAuth()
@@ -61,6 +81,28 @@ export default function TicketsList() {
   const [statusFilter, setStatusFilter] = useState<string>('todos')
   const [sectorFilter, setSectorFilter] = useState<string>('todos')
   const [categoryFilter, setCategoryFilter] = useState<string>('todos')
+
+  // Sorting (list view): one active column + direction at a time
+  const [sortKey, setSortKey] = useState<SortKey | null>(null)
+  const [sortDir, setSortDir] = useState<SortDir>(null)
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey !== key) {
+      // New column → first click is ascending
+      setSortKey(key)
+      setSortDir('asc')
+      return
+    }
+    // Same column → cycle asc → desc → none
+    if (sortDir === 'asc') {
+      setSortDir('desc')
+    } else if (sortDir === 'desc') {
+      setSortKey(null)
+      setSortDir(null)
+    } else {
+      setSortDir('asc')
+    }
+  }
 
   const fetchSectors = async () => {
     try {
@@ -92,9 +134,9 @@ export default function TicketsList() {
     fetchTickets()
   })
 
-  // Filter logic
+  // Filter + sort logic
   const filteredTickets = useMemo(() => {
-    return tickets.filter((t) => {
+    const filtered = tickets.filter((t) => {
       // Search
       if (search.trim()) {
         const q = search.toLowerCase()
@@ -121,7 +163,33 @@ export default function TicketsList() {
 
       return true
     })
-  }, [tickets, search, statusFilter, sectorFilter, categoryFilter])
+
+    if (!sortKey || !sortDir) return filtered
+
+    const dir = sortDir === 'asc' ? 1 : -1
+    const sorted = [...filtered].sort((a, b) => {
+      switch (sortKey) {
+        case 'title':
+          return a.title.localeCompare(b.title, 'pt-BR') * dir
+        case 'category':
+          return a.category.localeCompare(b.category, 'pt-BR') * dir
+        case 'sector': {
+          const sa = a.expand?.sector?.name || 'Setor Geral'
+          const sb = b.expand?.sector?.name || 'Setor Geral'
+          return sa.localeCompare(sb, 'pt-BR') * dir
+        }
+        case 'priority':
+          return ((PRIORITY_WEIGHT[a.priority] ?? 0) - (PRIORITY_WEIGHT[b.priority] ?? 0)) * dir
+        case 'status':
+          return ((STATUS_WEIGHT[a.status] ?? 0) - (STATUS_WEIGHT[b.status] ?? 0)) * dir
+        case 'created':
+          return (new Date(a.created).getTime() - new Date(b.created).getTime()) * dir
+        default:
+          return 0
+      }
+    })
+    return sorted
+  }, [tickets, search, statusFilter, sectorFilter, categoryFilter, sortKey, sortDir])
 
   const hasActiveFilters =
     search.trim() !== '' ||
@@ -321,12 +389,38 @@ export default function TicketsList() {
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 border-b border-slate-200/80 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
                 <tr>
-                  <th className="py-3 px-4">Título / Descrição</th>
-                  <th className="py-3 px-4">Categoria</th>
-                  <th className="py-3 px-4">Setor / Solicitante</th>
-                  <th className="py-3 px-4">Prioridade</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Data</th>
+                  {[
+                    { key: 'title' as SortKey, label: 'Título / Descrição', align: 'left' },
+                    { key: 'category' as SortKey, label: 'Categoria', align: 'left' },
+                    { key: 'sector' as SortKey, label: 'Setor / Solicitante', align: 'left' },
+                    { key: 'priority' as SortKey, label: 'Prioridade', align: 'left' },
+                    { key: 'status' as SortKey, label: 'Status', align: 'left' },
+                    { key: 'created' as SortKey, label: 'Data', align: 'right' },
+                  ].map((col) => {
+                    const isActive = sortKey === col.key && sortDir !== null
+                    return (
+                      <th
+                        key={col.key}
+                        className="py-3 px-4 select-none cursor-pointer hover:text-indigo-600 transition-colors"
+                        onClick={() => toggleSort(col.key)}
+                        title={`Ordenar por ${col.label}`}
+                      >
+                        <span
+                          className={`inline-flex items-center gap-1 ${
+                            col.align === 'right' ? 'flex-row-reverse' : ''
+                          }`}
+                        >
+                          {col.label}
+                          {isActive &&
+                            (sortDir === 'asc' ? (
+                              <ArrowUp className="h-3 w-3 text-indigo-600" />
+                            ) : (
+                              <ArrowDown className="h-3 w-3 text-indigo-600" />
+                            ))}
+                        </span>
+                      </th>
+                    )
+                  })}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">

@@ -31,12 +31,12 @@ import { isAudioPath, validateAttachment } from '@/lib/tickets'
 import { FileAudio } from 'lucide-react'
 
 const CATEGORIES: TicketCategory[] = [
-  'Hardware',
-  'Software',
-  'Rede',
   'Acesso e Senha',
   'E-mail',
+  'Hardware',
   'Impressora',
+  'Rede',
+  'Software',
   'Telefonia',
   'Outros',
 ]
@@ -141,15 +141,18 @@ export default function NewTicket() {
   const selectedCatObj = categories.find((c) => c.name === category || c.id === category)
   const selectedCatId = selectedCatObj ? selectedCatObj.id : ''
 
-  // Subcategorias filtradas pela categoria selecionada
-  const filteredSubcategories = subcategories.filter((s) => {
-    if (!category) return false
-    return (
-      s.category_id === category ||
-      (selectedCatId && s.category_id === selectedCatId) ||
-      (selectedCatObj && s.category_id === selectedCatObj.name)
-    )
-  })
+  // Subcategorias filtradas pela categoria selecionada e ordenadas A-Z
+  const filteredSubcategories = subcategories
+    .filter((s) => {
+      if (!category) return false
+      return (
+        s.category_id === category ||
+        (selectedCatId && s.category_id === selectedCatId) ||
+        (selectedCatObj && s.category_id === selectedCatObj.name)
+      )
+    })
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
 
   // Quando a categoria muda, limpa a subcategoria selecionada
   useEffect(() => {
