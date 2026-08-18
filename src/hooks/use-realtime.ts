@@ -27,18 +27,22 @@ export function useRealtime<TRecord extends RecordModel = RecordModel>(
     let unsubscribeFn: (() => Promise<void>) | undefined
     let cancelled = false
 
-    pb.collection<TRecord>(collectionName)
-      .subscribe('*', (e) => {
-        callbackRef.current(e)
-      })
-      .then((fn) => {
-        if (cancelled) {
-          fn().catch(() => {})
-        } else {
-          unsubscribeFn = fn
-        }
-      })
-      .catch(() => {})
+    try {
+      pb.collection<TRecord>(collectionName)
+        .subscribe('*', (e) => {
+          callbackRef.current(e)
+        })
+        .then((fn) => {
+          if (cancelled) {
+            fn().catch(() => {})
+          } else {
+            unsubscribeFn = fn
+          }
+        })
+        .catch(() => {})
+    } catch {
+      // Realtime client unavailable — degrade silently (realtime is optional).
+    }
 
     return () => {
       cancelled = true

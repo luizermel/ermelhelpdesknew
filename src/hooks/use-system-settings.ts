@@ -110,11 +110,16 @@ export function useSystemSettings(): SystemSettingsContext {
   return { ...state, refresh }
 }
 
-// Subscribe to realtime updates of system_settings so all open tabs stay in sync
-pb.collection('system_settings')
-  .subscribe('*', () => {
-    doRefresh()
-  })
-  .catch(() => {})
+// Subscribe to realtime updates of system_settings so all open tabs stay in sync.
+// Realtime is optional — if the SSE client is unavailable the app keeps working.
+try {
+  pb.collection('system_settings')
+    .subscribe('*', () => {
+      doRefresh()
+    })
+    .catch(() => {})
+} catch {
+  // Realtime client unavailable — degrade silently.
+}
 
 export default useSystemSettings

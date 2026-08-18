@@ -12,6 +12,7 @@ import {
 import type { Category } from '@/types'
 import type { Sector, Subcategory, TicketCategory, TicketPriority } from '@/types'
 import pb from '@/lib/pocketbase/client'
+import { useRealtime } from '@/hooks/use-realtime'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -124,18 +125,21 @@ export default function NewTicket() {
       .getAll()
       .then(setSubcategories)
       .catch((err) => console.error(err))
+  }, [user?.sector])
 
-    // Mantém inscrito em alterações de subcategorias em tempo real
-    const unsub = pb.collection('subcategories').subscribe('*', () => {
+  // Mantém inscrito em alterações de subcategorias em tempo real.
+  // Realtime é opcional — se o cliente SSE não estiver disponível, a página
+  // continua funcionando normalmente (sem atualização automática).
+  useRealtime<Subcategory>(
+    'subcategories',
+    () => {
       subcategoriesService
         .getAll()
         .then(setSubcategories)
         .catch(() => undefined)
-    })
-    return () => {
-      unsub.then((u) => u())
-    }
-  }, [user?.sector])
+    },
+    pb.authStore.isValid,
+  )
 
   // Resolve o ID da categoria selecionada caso category seja o nome (ex: "Acesso e Senha")
   const selectedCatObj = categories.find((c) => c.name === category || c.id === category)
